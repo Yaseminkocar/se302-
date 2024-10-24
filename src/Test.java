@@ -8,6 +8,7 @@ public class Test {
         System.out.println("s");
         System.out.println("tekrar");
         System.out.println("aaaaa");
+        System.out.println("şükür");
     }
 
 }
