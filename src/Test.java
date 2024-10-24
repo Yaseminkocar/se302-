@@ -9,6 +9,7 @@ public class Test {
         System.out.println("tekrar");
         System.out.println("aaaaa");
         System.out.println("şükür");
+        System.out.println("şükürekoymak");
     }
 
 }
