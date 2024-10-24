@@ -4,10 +4,15 @@ public class Test {
         System.out.println("test");
         System.out.println("memo test!!!!!!!!!!!!!!!");
         System.out.println("test2");
-        System.out.println("emiray's commit");
-        System.out.println("emiray'S second commit");
-        System.out.println("emiray's third comittttttt");
-        System.out.println("**********************");
+        System.out.println("deneme");
+        System.out.println("s");
+        System.out.println("tekrar");
+        System.out.println("aaaaa");
+        System.out.println("şükür");
+        System.out.println("şükürekoymak");
+        System.out.println("denemeeeeeeeeee");
+        System.out.println("yaso");
+        System.out.println("sinos");
     }
 
 }
