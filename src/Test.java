@@ -9,6 +9,7 @@ public class Test {
         System.out.println("deneme");
         System.out.println("aaaaaaaaaaaaaaaaaaaa");
         System.out.println("yaso istediği için deneme");
+        System.out.println("aaaaaaaaaaaa");
     }
 
 }
