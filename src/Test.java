@@ -12,6 +12,7 @@ public class Test {
         System.out.println("şükürekoymak");
         System.out.println("denemeeeeeeeeee");
         System.out.println("yaso");
+        System.out.println("sinos");
     }
 
 }
