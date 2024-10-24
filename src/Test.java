@@ -15,7 +15,8 @@ public class Test {
         System.out.println("sinos");
         System.out.println("emiray's second committt finally");
         System.out.println("....");
-        System.out.println("deneyenzi");
+        System.out.println("oluyo mu olmuyo mu ???");
+
     }
 
 }
