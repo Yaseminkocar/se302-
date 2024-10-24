@@ -5,6 +5,7 @@ public class Test {
         System.out.println("memo test!!!!!!!!!!!!!!!");
         System.out.println("test2");
         System.out.println("deneme");
+        System.out.println("s");
     }
 
 }
