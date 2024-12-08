@@ -11,4 +11,6 @@ public class Student {
         this.assignedClass = assignedClass;
         this.details = details;
     }
+
+
 }
