@@ -43,6 +43,9 @@ public class Student {
         this.details = details;
     }
 
+    @Override
+    public String toString() {
+        return "Name: " + name + ", ID: " + id + ", Class: " + assignedClass + ", Details: " + details;
 
-
-}
+    }
+    }
