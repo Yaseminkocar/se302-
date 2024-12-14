@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.hellofx.SchoolManagementApp">
+    <!-- Menü Çubuğu (Menu Bar) -->
+    <top>
+        <MenuBar>
+            <!-- File Menüsü -->
+            <Menu text="File">
+                <MenuItem text="New" fx:id="newItem" />
+                <MenuItem text="Open" fx:id="openItem" />
+                <MenuItem text="Save" fx:id="saveItem" />
+                <MenuItem text="Save As" fx:id="saveAsItem" />
+                <MenuItem text="Exit" fx:id="exitItem" />
+            </Menu>
+
+            <!-- Student Management Menüsü -->
+            <Menu text="Student Management">
+                <MenuItem text="Add New Student" fx:id="addStudentItem" />
+                <MenuItem text="Remove Student" fx:id="removeStudentItem" />
+                <MenuItem text="Assign to Class" fx:id="assignClassItem" />
+                <MenuItem text="View Student Details" fx:id="viewDetailsItem" />
+            </Menu>
+
+            <!-- Help Menüsü -->
+            <Menu text="Help">
+                <MenuItem text="Help" fx:id="helpItem" />
+                <MenuItem text="About Student Manager" fx:id="aboutItem" />
+            </Menu>
+        </MenuBar>
+    </top>
+
+    <!-- Araç Çubuğu (ToolBar) -->
+    <center>
+        <HBox spacing="10">
+            <Button text="New" fx:id="newButton" />
+            <Button text="Open" fx:id="openButton" />
+            <Button text="Save" fx:id="saveButton" />
+            <Button text="Add New Student" fx:id="addButton" />
+            <Button text="Remove Student" fx:id="removeButton" />
+            <Button text="Assign to Class" fx:id="assignButton" />
+            <Button text="Help" fx:id="helpButton" />
+        </HBox>
+    </center>
+</BorderPane>
