@@ -459,8 +459,6 @@ public class SchoolManagementApp extends Application {
 
 
 
-
-
 /////////////   DOĞRU ÇALIŞAN ESKİ KOD  ////////////////
 
 /*import javafx.application.Application;
