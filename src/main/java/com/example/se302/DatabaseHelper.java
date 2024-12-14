@@ -338,6 +338,33 @@ public class DatabaseHelper {
 
 }
 
+    public static List<String> searchCoursesByStudent(String studentName) {
+        List<String> results = new ArrayList<>();
+        String query = """
+        SELECT courses.course_name
+        FROM courses
+        INNER JOIN course_students ON courses.id = course_students.course_id
+        INNER JOIN students ON students.id = course_students.student_id
+        WHERE students.student_name LIKE ?;
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, "%" + studentName + "%");
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                results.add(resultSet.getString("course_name"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return results;
+    }
+
+
 
 
 }

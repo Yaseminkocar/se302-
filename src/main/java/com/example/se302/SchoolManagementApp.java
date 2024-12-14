@@ -4,12 +4,19 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SchoolManagementApp extends Application {
@@ -55,12 +62,13 @@ public class SchoolManagementApp extends Application {
         MenuItem searchItem = new MenuItem("Search Lecturer");
         searchMenu.getItems().add(searchItem);
 
-        // Search menüsüne tıklanınca arama işlemi yapılacak
+
         searchItem.setOnAction(e -> {
-            // Arama ekranını göster
             Scene searchScene = createSearchScene(primaryStage);
             primaryStage.setScene(searchScene);
         });
+
+
 
 
 
@@ -128,6 +136,47 @@ public class SchoolManagementApp extends Application {
         return new Scene(layout, 800, 600);
     }
 
+    public static List<String> searchCoursesByStudent(String studentName) {
+        List<String> results = new ArrayList<>();
+        String query = "SELECT courses.course_name " +
+                "FROM courses " +
+                "INNER JOIN course_students ON courses.id = course_students.course_id " +
+                "INNER JOIN students ON students.id = course_students.student_id " +
+                "WHERE students.student_name LIKE ?";
+
+        Connection connection = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            // Bağlantıyı aç
+            connection = DriverManager.getConnection(DB_PATH);
+
+            // Sorguyu hazırlayın
+            statement = connection.prepareStatement(query);
+            statement.setString(1, "%" + studentName + "%");
+
+            // Sorguyu çalıştır ve sonuçları al
+            resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                results.add(resultSet.getString("course_name"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            // Kaynakları manuel olarak kapat
+            try {
+                if (resultSet != null) resultSet.close();
+                if (statement != null) statement.close();
+                if (connection != null) connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return results;
+    }
 
 
     private Scene createAddStudentScene(Stage primaryStage) {
