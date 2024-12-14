@@ -13,19 +13,26 @@ import java.util.List;
 
 public class DatabaseHelper {
 
-    private static final String DB_PATH = "jdbc:sqlite:" + System.getProperty("user.dir") + "\\TimetableManagement.db";
-
-
-
+    private static final String DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
 
     static {
-        // Ensure the database folder exists
-        File dbDir = new File(DB_PATH);
-        if (!dbDir.exists()) {
-            dbDir.mkdirs();
+        // Ensure the database file exists
+        File dbFile = new File(System.getProperty("user.dir") + "\\TimetableManagement.db");
+
+        try {
+            if (!dbFile.exists()) {
+                System.out.println("database have not found , creating...");
+                dbFile.createNewFile(); // Create the file if it does not exist
+                setupDatabase(); // Create the database and tables
+            } else {
+                System.out.println("already have database.");
+            }
+        } catch (IOException e) {
+            System.err.println("there was a mistake when creating a database: " + e.getMessage());
+            e.printStackTrace();
         }
-        setupDatabase(); // Create the database and tables if not exist
     }
+
 
     public static boolean courseExists(String courseName, String timeToStart) {
         String query = "SELECT 1 FROM courses WHERE course_name = ? AND time_to_start = ?";
@@ -311,31 +318,12 @@ public class DatabaseHelper {
         return data;
     }
 
- /*   public static List<String> searchCourses(String searchText) {
-        List<String> results = new ArrayList<>();
-        String query = "SELECT course_name FROM courses WHERE course_name LIKE ?";
 
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-
-            preparedStatement.setString(1, "%" + searchText + "%"); // Joker karakterlerle arama
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            while (resultSet.next()) {
-                results.add(resultSet.getString("course_name"));
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return results;
-    } */
 
     public static List<String> searchCoursesByLecturer(String lecturerName) {
         List<String> results = new ArrayList<>();
         String query = "SELECT DISTINCT course_name FROM courses WHERE lecturer LIKE ?";
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
              PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, "%" + lecturerName + "%");
             ResultSet resultSet = statement.executeQuery();
@@ -347,27 +335,8 @@ public class DatabaseHelper {
         }
         return results;
 
-        /*List<String> results = new ArrayList<>();
-        String query = "SELECT course_name FROM courses WHERE lecturer LIKE ?";
 
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-
-            preparedStatement.setString(1, "%" + lecturerName + "%"); // Joker karakterlerle arama
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            while (resultSet.next()) {
-                results.add(resultSet.getString("course_name"));
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return results;
-
-         */
-    }
+}
 
 
 

@@ -52,3 +52,6 @@ public class Student {
         return "Name: " + name + ", ID: " + id + ", Class: " + assignedClass + ", Details: " + details;
     }
 }
+
+
+

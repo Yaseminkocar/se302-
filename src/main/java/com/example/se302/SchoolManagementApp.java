@@ -9,10 +9,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.List;
 
 public class SchoolManagementApp extends Application {
@@ -64,6 +61,7 @@ public class SchoolManagementApp extends Application {
             Scene searchScene = createSearchScene(primaryStage);
             primaryStage.setScene(searchScene);
         });
+
 
 
         Menu helpMenu = new Menu ("Help");
@@ -332,7 +330,7 @@ public class SchoolManagementApp extends Application {
 
             // Sahneyi oluştur
             Scene scene = new Scene(createMainMenu(primaryStage), 800, 600);
-           // scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+            // scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
             primaryStage.setTitle("Student Manager");
             primaryStage.setScene(scene);
             primaryStage.show();
@@ -349,7 +347,7 @@ public class SchoolManagementApp extends Application {
     private static final String DB_PATH = "jdbc:sqlite:" + System.getProperty("user.dir") + "\\TimetableManagement.db";
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws SQLException {
 
 
       /* try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
@@ -438,299 +436,12 @@ public class SchoolManagementApp extends Application {
         // CSV dosyasını veritabanına aktar
         CSVToDatabase.importCSV("C:\\database\\Courses (2).csv");
 
+
+        System.out.println("DB_PATH: " + DB_PATH);
+
         // JavaFX uygulamasını başlat
         launch(args);
 
     }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/////////////   DOĞRU ÇALIŞAN ESKİ KOD  ////////////////
-
-/*import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-
-public class SchoolManagementApp extends Application {
-
-    // İlk ekran: Ana sayfa
-    private BorderPane createMainMenu(Stage primaryStage) {
-
-        BorderPane mainMenuLayout = new BorderPane();
-
-        // Menü çubuğu
-        MenuBar menuBar = new MenuBar();
-
-        // "File" menüsü
-        Menu fileMenu = new Menu("File");
-        MenuItem newItem = new MenuItem("New");
-        MenuItem openItem = new MenuItem("Open");
-        MenuItem saveItem = new MenuItem("Save");
-        MenuItem saveAsItem = new MenuItem("Save As");
-        MenuItem exitItem = new MenuItem("Exit");
-        fileMenu.getItems().addAll(newItem, openItem, saveItem, saveAsItem, exitItem);
-
-        // "Student Management" menüsü
-        Menu studentManagementMenu = new Menu("Student Management");
-        MenuItem addStudentItem = new MenuItem("Add New Student");
-        MenuItem removeStudentItem = new MenuItem("Remove Student");
-        MenuItem assignToClass = new MenuItem("Assign to Class");
-
-
-        Menu helpMenu = new Menu ("Help");
-        MenuItem help = new MenuItem("Help");
-        helpMenu.getItems().addAll(help);
-
-
-        // "Add New Student" butonuna tıklanınca yeni ekrana geçilecek
-        addStudentItem.setOnAction(e -> {
-            Scene addStudentScene = createAddStudentScene(primaryStage);
-            primaryStage.setScene(addStudentScene);
-        });
-
-        studentManagementMenu.getItems().addAll(addStudentItem,removeStudentItem,assignToClass);
-
-        // Menüleri ekleyelim
-        menuBar.getMenus().addAll(fileMenu, studentManagementMenu, helpMenu);
-        mainMenuLayout.setTop(menuBar);
-
-        // Ana menü sayfasına bir içerik ekleyebiliriz
-        Label welcomeLabel = new Label("Welcome to Student Manager!");
-        welcomeLabel.setStyle("-fx-font-size: 20px;");
-        mainMenuLayout.setCenter(welcomeLabel);
-
-        return mainMenuLayout;
-    }
-
-    // İkinci ekran: Öğrenci ekleme sayfası
-    private Scene createAddStudentScene(Stage primaryStage) {
-        // Öğrenci adı ve kimliği için etiketler ve text field'lar
-        Label nameLabel = new Label("   Student Name:");
-        TextField nameField = new TextField();
-
-        Label idLabel = new Label("   Student ID:");
-        TextField idField = new TextField();
-
-        // Ders seçimi için ComboBox
-        Label courseLabel = new Label("  Choose a Course:");
-        ComboBox<String> courseComboBox = new ComboBox<>();
-        courseComboBox.getItems().addAll("SE 302", "CE 323", "CE 315", "MATH250", "EEE 242");
-
-        // Sınıf seçimi için ComboBox
-        Label classroomLabel = new Label("  Choose a Classroom:");
-        ComboBox<String> classroomComboBox = new ComboBox<>();
-        classroomComboBox.getItems().addAll("M203", "M404", "C207", "C209", "ML103", "MB158");
-
-        // "Assign" butonu
-        Button assignButton = new Button("Assign Course");
-
-        // Sonuç görüntülemek için Label
-        Label resultLabel = new Label();
-
-        // Butona tıklandığında gerçekleşecek işlemler
-        assignButton.setOnAction(e -> {
-            String studentName = nameField.getText();
-            String studentId = idField.getText();
-            String selectedCourse = courseComboBox.getValue();
-            String selectedClassroom = classroomComboBox.getValue();
-
-            if (studentName.isEmpty() || studentId.isEmpty() || selectedCourse == null || selectedClassroom == null) {
-                resultLabel.setText("Please fill in all fields and select a course.");
-            } else {
-                resultLabel.setText("Student: " + studentName + " (ID: " + studentId + ") has been assigned to " + selectedCourse + " in " + selectedClassroom + ".");
-            }
-        });
-
-        // VBox düzeni oluşturuluyor
-        VBox layout = new VBox(10);
-        layout.getChildren().addAll(nameLabel, nameField, idLabel, idField, courseLabel, courseComboBox, classroomLabel, classroomComboBox, assignButton, resultLabel);
-
-        // "Back to Main Menu" butonu
-        Button backButton = new Button("Back to Main Menu");
-        backButton.setOnAction(e -> {
-            Scene mainMenuScene = new Scene(createMainMenu(primaryStage), 400, 300);
-            primaryStage.setScene(mainMenuScene);
-        });
-
-        layout.getChildren().add(backButton);
-
-        // Yeni sahneyi oluştur
-        Scene scene = new Scene(layout, 400, 400);
-        return scene;
-    }
-
-    @Override
-    public void start(Stage primaryStage) {
-        try {
-            // FXML dosyasını yükle
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
-            BorderPane root = loader.load();
-
-            // Sahneyi oluştur
-            Scene scene = new Scene(createMainMenu(primaryStage), 800, 600);
-            primaryStage.setTitle("Student Manager");
-            primaryStage.setScene(scene);
-            primaryStage.show();
-
-            // FXML Controller'a erişim
-            SchoolManagementApp controller = loader.getController();
-            controller.init();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void main(String[] args) {
-        launch(args);
-    }
-}
-
- */
-
-
-
-
-
-
-// sout("--------------------------------------------------------------")
-
-//EN ESKİ
-
-
-/*
-        removeStudentItem.setOnAction(e -> {
-            Scene addStudentScene = createAddStudentScene(primaryStage);
-            primaryStage.setScene(addStudentScene);
-        });
-
-        assignToClass.setOnAction(e -> {
-            Scene addStudentScene = createAddStudentScene(primaryStage);
-            primaryStage.setScene(addStudentScene);
-        });
-
-
- */
-
-
-
-
-
-
-
-/*import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
-
-public class SchoolManagementApp extends Application {
-
-
-
-        // Öğrenci adı ve kimliği için etiketler ve text field'lar
-        Label nameLabel = new Label("   Student Name:");
-        TextField nameField = new TextField();
-
-        Label idLabel = new Label("   Student ID:");
-        TextField idField = new TextField();
-
-        // Ders seçimi için ComboBox
-        Label courseLabel = new Label("   Choose a Course:");
-        ComboBox<String> courseComboBox = new ComboBox<>();
-        courseComboBox.getItems().addAll("SE 302", "CE 315", "CE 323", "MATH 250");
-
-        // "Assign" butonu
-        Button assignButton = new Button("Assign Course");
-
-        // Sonuç görüntülemek için Label
-        Label resultLabel = new Label();
-
-        // Butona tıklandığında gerçekleşecek işlemler
-        assignButton.setOnAction(e -> {
-            String studentName = nameField.getText();
-            String studentId = idField.getText();
-            String selectedCourse = courseComboBox.getValue();
-
-            if (studentName.isEmpty() || studentId.isEmpty() || selectedCourse == null) {
-                resultLabel.setText("Please fill in all fields and select a course.");
-            } else {
-                resultLabel.setText("Student: " + studentName + " (ID: " + studentId + ") has been assigned to " + selectedCourse + ".");
-            }
-        });
-
-        // VBox düzeni oluşturuluyor
-        VBox layout = new VBox(10);
-        layout.getChildren().addAll(nameLabel, nameField, idLabel, idField, courseLabel, courseComboBox, assignButton, resultLabel);
-
-        // Scene oluşturuluyor
-        Scene scene = new Scene(layout, 400, 300);
-        primaryStage.setTitle("Student Course Assignment");
-        primaryStage.setScene(scene);
-        primaryStage.show();
-    }
-
-
-    public static void main(String[] args) {
-        launch(args);
-    }
-}
-*/
-
-
-/*import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
-import javafx.scene.layout.BorderPane;
-import javafx.stage.Stage;
-
-
-
-public class SchoolManagementApp extends Application {
-
-    @Override
-    public void start(Stage primaryStage) {
-        try {
-            // FXML dosyasını yükle
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
-            BorderPane root = loader.load();
-
-            // Sahneyi oluştur
-            Scene scene = new Scene(root, 800, 600);
-            primaryStage.setTitle("Student Manager");
-            primaryStage.setScene(scene);
-            primaryStage.show();
-
-            // FXML Controller'a erişim
-            SchoolManagementApp controller = loader.getController();
-            controller.init();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void main(String[] args) {
-        launch(args);
-    }
-}
-
- */

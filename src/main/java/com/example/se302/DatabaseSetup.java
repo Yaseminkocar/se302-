@@ -4,7 +4,7 @@ import java.sql.*;
 
 public class DatabaseSetup {
 
-    private static final String DB_PATH = "jdbc:sqlite:" + System.getProperty("user.dir") + "\\TimetableManagement.db";
+    private static final String DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
 
 
 
@@ -74,5 +74,4 @@ public class DatabaseSetup {
             e.printStackTrace();
         }
     }
-
 }
