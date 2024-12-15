@@ -9,7 +9,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DatabaseHelper {
 
@@ -370,34 +372,6 @@ public class DatabaseHelper {
 
 
 
-    /*public static List<String> searchCoursesByStudent(String studentName) {
-        List<String> results = new ArrayList<>();
-        String query = """
-        SELECT courses.course_name
-        FROM courses
-        INNER JOIN course_students ON courses.id = course_students.course_id
-        INNER JOIN students ON students.id = course_students.student_id
-        WHERE students.student_name COLLATE NOCASE LIKE ?;
-    """;
-
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setString(1, "%" + studentName + "%");
-            ResultSet resultSet = statement.executeQuery();
-
-            while (resultSet.next()) {
-                results.add(resultSet.getString("course_name"));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return results;
-    }
-
-     */
-
     private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
 
     // Classroom kapasitelerini getir
@@ -495,6 +469,69 @@ public class DatabaseHelper {
 
         return availableClassrooms;
     }
+
+    public static final String[] TIME_SLOTS = {
+            "08:30 - 09:15",
+            "09:25 - 10:10",
+            "10:20 - 11:05",
+            "11:15 - 12:00",
+            "12:10 - 12:55",
+            "13:05 - 13:50",
+            "14:00 - 14:45",
+            "14:55 - 15:40",
+            "15:50 - 16:35"
+    };
+
+    public static Map<String, Map<String, String>> getWeeklyScheduleForStudentWithTimes(String studentName) {
+        String query = """
+        SELECT DISTINCT courses.course_name, courses.time_to_start
+        FROM courses
+        INNER JOIN course_students ON courses.id = course_students.course_id
+        INNER JOIN students ON students.id = course_students.student_id
+        WHERE students.student_name = ?
+    """;
+
+        Map<String, Map<String, String>> schedule = new LinkedHashMap<>();
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
+
+        // Gün ve zaman dilimleri için boş program oluştur
+        for (String day : days) {
+            Map<String, String> timeMap = new LinkedHashMap<>();
+            for (String time : TIME_SLOTS) {
+                timeMap.put(time, "-"); // Başlangıçta her slot boş
+            }
+            schedule.put(day, timeMap);
+        }
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, studentName);
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                String courseName = resultSet.getString("course_name");
+                String timeToStart = resultSet.getString("time_to_start");
+
+                // Gün ve saat eşleştirmesi
+                for (String day : days) {
+                    if (timeToStart.toLowerCase().contains(day.toLowerCase())) {
+                        for (String time : TIME_SLOTS) {
+                            if (timeToStart.contains(time.split(" ")[0])) {
+                                schedule.get(day).put(time, courseName);
+                            }
+                        }
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return schedule;
+    }
+
 
 
 

@@ -1,6 +1,7 @@
 package com.example.se302;
 
 import javafx.application.Application;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
@@ -24,7 +25,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.example.se302.DatabaseHelper.TIME_SLOTS;
+
 public class SchoolManagementApp extends Application {
+
+    private static final String[] TIME_SLOTS = {
+            "08:30 - 09:15",
+            "09:25 - 10:10",
+            "10:20 - 11:05",
+            "11:15 - 12:00",
+            "12:10 - 12:55",
+            "13:05 - 13:50",
+            "14:00 - 14:45",
+            "14:55 - 15:40",
+            "15:50 - 16:35"
+    };
 
     // İlk ekran: Ana sayfa
     private BorderPane createMainMenu(Stage primaryStage) {
@@ -48,21 +63,18 @@ public class SchoolManagementApp extends Application {
         MenuItem addStudentItem = new MenuItem("Add New Student");
         MenuItem removeStudentItem = new MenuItem("Remove Student");
         MenuItem assignToClass = new MenuItem("Assign to Class");
-        studentManagementMenu.getItems().addAll(addStudentItem, removeStudentItem, assignToClass);
 
-       /* // "Classroom" menüsü
-        Menu classroomMenu = new Menu("Classroom");
-        MenuItem viewClassroomSchedule = new MenuItem("View Classroom Schedule");
-        classroomMenu.getItems().add(viewClassroomSchedule);
-
-
-// Classroom menüsüne tıklanınca ders programı görüntülenecek
-        viewClassroomSchedule.setOnAction(e -> {
-            Scene classroomScheduleScene = createClassroomScheduleScene(primaryStage);
-            primaryStage.setScene(classroomScheduleScene);
+        MenuItem viewWeeklyScheduleItem = new MenuItem("View Student's Weekly Schedule");
+        viewWeeklyScheduleItem.setOnAction(e -> {
+            Scene weeklyScheduleScene = createWeeklyScheduleScene(primaryStage);
+            primaryStage.setScene(weeklyScheduleScene);
         });
 
-        */
+
+
+
+        studentManagementMenu.getItems().addAll(addStudentItem, removeStudentItem, assignToClass,viewWeeklyScheduleItem);
+
 
         Menu classroomMenu = new Menu("Classroom");
         MenuItem viewClassroomCapacities = new MenuItem("View Classroom Capacities");
@@ -133,6 +145,63 @@ public class SchoolManagementApp extends Application {
         return mainMenuLayout;
     }
 
+    private Scene createWeeklyScheduleScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        // Öğrenci adı girişi
+        Label studentLabel = new Label("Enter a student name:");
+        TextField studentField = new TextField();
+        Button findButton = new Button("Show Weekly Schedule");
+
+        // TableView oluştur
+        TableView<Map<String, String>> tableView = new TableView<>();
+        TableColumn<Map<String, String>, String> timeColumn = new TableColumn<>("Time");
+        timeColumn.setCellValueFactory(data ->
+                new SimpleStringProperty(data.getValue().get("time"))
+        );
+
+        TableColumn<Map<String, String>, String> mondayColumn = createDayColumn("Monday");
+        TableColumn<Map<String, String>, String> tuesdayColumn = createDayColumn("Tuesday");
+        TableColumn<Map<String, String>, String> wednesdayColumn = createDayColumn("Wednesday");
+        TableColumn<Map<String, String>, String> thursdayColumn = createDayColumn("Thursday");
+        TableColumn<Map<String, String>, String> fridayColumn = createDayColumn("Friday");
+
+        tableView.getColumns().addAll(timeColumn, mondayColumn, tuesdayColumn, wednesdayColumn, thursdayColumn, fridayColumn);
+
+        findButton.setOnAction(e -> {
+            String studentName = studentField.getText().trim();
+            if (!studentName.isEmpty()) {
+                Map<String, Map<String, String>> schedule = DatabaseHelper.getWeeklyScheduleForStudentWithTimes(studentName);
+                ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
+
+                for (String time : TIME_SLOTS) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("time", time);
+                    for (String day : schedule.keySet()) {
+                        row.put(day, schedule.get(day).get(time));
+                    }
+                    data.add(row);
+                }
+                tableView.setItems(data);
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(studentLabel, studentField, findButton, tableView, backButton);
+        return new Scene(layout, 800, 600);
+    }
+
+    private TableColumn<Map<String, String>, String> createDayColumn(String day) {
+        TableColumn<Map<String, String>, String> column = new TableColumn<>(day);
+        column.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(day)));
+        return column;
+    }
+
+
+
     private Scene createAvailableClassroomsScene(Stage primaryStage) {
         // Layout oluştur
         VBox layout = new VBox(10);
@@ -148,11 +217,22 @@ public class SchoolManagementApp extends Application {
         // Sonuçları göstermek için ListView
         ListView<String> resultList = new ListView<>();
 
+        // Dersin mevcut kapasitesini göstermek için Label
+        Label courseCapacityLabel = new Label("Course capacity: Not available");
+
         // Arama işlemi
         findButton.setOnAction(e -> {
             String courseName = courseField.getText().trim();
             if (!courseName.isEmpty()) {
-                // Ders adı girilmişse DatabaseHelper'dan uygun sınıfları al
+                // Ders kapasitesini al ve göster
+                int studentCount = DatabaseHelper.getStudentCountForCourse(courseName);
+                if (studentCount > 0) {
+                    courseCapacityLabel.setText("Current Course capacity: " + studentCount + " students");
+                } else {
+                    courseCapacityLabel.setText("Course capacity: Not found");
+                }
+
+                // Uygun sınıfları al ve listele
                 List<String> classrooms = DatabaseHelper.getAvailableClassrooms(courseName);
                 resultList.getItems().clear();
                 if (!classrooms.isEmpty()) {
@@ -162,6 +242,7 @@ public class SchoolManagementApp extends Application {
                 }
             } else {
                 // Ders adı girilmemişse uyarı mesajı göster
+                courseCapacityLabel.setText("Course capacity: Not available");
                 resultList.getItems().clear();
                 resultList.getItems().add("Please enter a course name.");
             }
@@ -175,11 +256,12 @@ public class SchoolManagementApp extends Application {
         });
 
         // Layout içine bileşenleri ekle
-        layout.getChildren().addAll(courseLabel, courseField, findButton, resultList, backButton);
+        layout.getChildren().addAll(courseLabel, courseField, findButton, courseCapacityLabel, resultList, backButton);
 
         // Scene oluştur ve döndür
         return new Scene(layout, 800, 600);
     }
+
 
 
     private Scene createStudentCountScene(Stage primaryStage) {
