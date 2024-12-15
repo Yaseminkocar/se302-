@@ -1,7 +1,10 @@
 package com.example.se302;
 
 import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
@@ -17,7 +20,9 @@ import javafx.stage.Stage;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SchoolManagementApp extends Application {
 
@@ -60,7 +65,6 @@ public class SchoolManagementApp extends Application {
 
         Menu searchMenu = new Menu("Search");
         MenuItem searchItem = new MenuItem("Search Lecturer");
-        searchMenu.getItems().add(searchItem);
 
 
         searchItem.setOnAction(e -> {
@@ -69,9 +73,14 @@ public class SchoolManagementApp extends Application {
         });
 
 
+        MenuItem searchStudentItem = new MenuItem("Search Student");
+        searchStudentItem.setOnAction(e -> {
+            Scene searchStudentScene = createSearchStudentScene(primaryStage); // Search Student için sahne oluştur
+            primaryStage.setScene(searchStudentScene);
+        });
 
 
-
+        searchMenu.getItems().addAll(searchItem, searchStudentItem);
         Menu helpMenu = new Menu ("Help");
         MenuItem help = new MenuItem("Help");
         helpMenu.getItems().addAll(help);
@@ -135,6 +144,41 @@ public class SchoolManagementApp extends Application {
 
         return new Scene(layout, 800, 600);
     }
+
+    private Scene createSearchStudentScene(Stage primaryStage) {
+
+        VBox layout = new VBox(10);  // 10px aralıkla VBox yerleşimi
+        layout.setPadding(new Insets(10));
+
+        // Öğrenci adı girebilmek için TextField
+        TextField studentNameField = new TextField();
+        studentNameField.setPromptText("Enter student name");
+
+        // Arama butonu
+        Button searchButton = new Button("Search");
+        Label resultLabel = new Label();
+
+        searchButton.setOnAction(e -> {
+            String studentName = studentNameField.getText();
+            List<String> courses = DatabaseHelper.searchCoursesByStudent(studentName); // Veritabanından dersleri al
+            if (courses.isEmpty()) {
+                resultLabel.setText("No courses found for student: " + studentName);
+            } else {
+                resultLabel.setText("Courses for " + studentName + ": " + String.join(", ", courses));
+            }
+        });
+
+        // Ana menüye dönüş butonu
+        Button backButton = new Button("Back");
+        // backButton.setOnAction(e -> primaryStage.setScene(createMainScene(primaryStage))); // Ana menüye dön
+
+        layout.getChildren().addAll(studentNameField, searchButton, resultLabel, backButton);
+
+        return new Scene(layout, 400, 300);
+    }
+
+
+
 
     public static List<String> searchCoursesByStudent(String studentName) {
         List<String> results = new ArrayList<>();
@@ -399,46 +443,14 @@ public class SchoolManagementApp extends Application {
     public static void main(String[] args) throws SQLException {
 
 
-      /* try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
-             Statement statement = ((Connection) connection).createStatement()) {
-
-            System.out.println("Courses:");
-            ResultSet courses = statement.executeQuery("SELECT * FROM courses;");
-            while (((ResultSet) courses).next()) {
-                System.out.println(
-                        "Course Name: " + courses.getString("course_name") +
-                                ", Time: " + courses.getString("time_to_start") +
-                                ", Duration: " + courses.getInt("duration") +
-                                ", Lecturer: " + courses.getString("lecturer")
-                );
-            }
-
-            System.out.println("\nStudents:");
-            ResultSet students = statement.executeQuery("SELECT * FROM students;");
-            while (students.next()) {
-                System.out.println("Student Name: " + students.getString("student_name"));
-            }
-
-            System.out.println("\nCourse-Student Relationships:");
-            ResultSet courseStudents = statement.executeQuery("SELECT * FROM course_students;");
-            while (courseStudents.next()) {
-                System.out.println(
-                        "Course ID: " + courseStudents.getInt("course_id") +
-                                ", Student ID: " + courseStudents.getInt("student_id")
-                );
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } */
-
-
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
              Statement statement = connection.createStatement()) {
 
-            // Courses Table
             System.out.println("Courses:");
-            ResultSet courses = statement.executeQuery("SELECT * FROM courses;");
+            ResultSet courses = statement.executeQuery(
+                    "SELECT DISTINCT course_name, time_to_start, duration, lecturer FROM courses;"
+            );
+
             while (courses.next()) {
                 System.out.println(
                         "Course Name: " + courses.getString("course_name") +
@@ -447,36 +459,75 @@ public class SchoolManagementApp extends Application {
                                 ", Lecturer: " + courses.getString("lecturer")
                 );
             }
-
-            // Students Table
-            System.out.println("\nStudents:");
-            ResultSet students = statement.executeQuery("SELECT * FROM students;");
-            while (students.next()) {
-                System.out.println("Student Name: " + students.getString("student_name"));
-            }
-
-            // Course-Student Relationships
-            System.out.println("\nCourse-Student Relationships:");
-            String query = """
-        SELECT students.student_name, courses.course_name
-        FROM course_students
-        INNER JOIN students ON course_students.student_id = students.id
-        INNER JOIN courses ON course_students.course_id = courses.id
-        ORDER BY students.student_name;
-        """;
-
-            ResultSet courseStudents = statement.executeQuery(query);
-            while (courseStudents.next()) {
-                System.out.println(
-                        "Student Name: " + courseStudents.getString("student_name") +
-                                ", Course Name: " + courseStudents.getString("course_name")
-                );
-            }
-
-        } catch (Exception e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
 
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db")) {
+
+            Statement statement = connection.createStatement();
+
+            // Ders Kodlarını Getir
+            System.out.println("Course Names:");
+            ResultSet courseCodes = statement.executeQuery("""
+        SELECT DISTINCT student_name AS code_or_name
+        FROM students
+        WHERE student_name GLOB '[A-Z]*[0-9]*'
+        ORDER BY student_name;
+    """);
+
+            while (courseCodes.next()) {
+                System.out.println("Course Code: " + courseCodes.getString("code_or_name"));
+            }
+
+            // Öğrenci İsimlerini Getir
+            System.out.println("\nStudent Names:");
+            ResultSet studentNames = statement.executeQuery("""
+        SELECT DISTINCT student_name AS code_or_name
+        FROM students
+        WHERE student_name NOT GLOB '[A-Z]*[0-9]*'
+        
+    """);
+
+            while (studentNames.next()) {
+                System.out.println("Student Name: " + studentNames.getString("code_or_name"));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+             Statement statement = connection.createStatement()) {
+
+            System.out.println("\nCourse-Student Relationships:");
+
+            ResultSet courseStudents = statement.executeQuery("""
+        SELECT 
+            students.student_name,
+            GROUP_CONCAT(DISTINCT courses.course_name) AS courses
+        FROM 
+            course_students
+        INNER JOIN 
+            students ON course_students.student_id = students.id
+        INNER JOIN 
+            courses ON course_students.course_id = courses.id
+        GROUP BY 
+            students.student_name
+        ORDER BY 
+            students.student_name;
+    """);
+
+            while (courseStudents.next()) {
+                String studentName = courseStudents.getString("student_name");
+                String courses = courseStudents.getString("courses");
+
+                System.out.println("Student Name: " + studentName + ", Courses: " + courses);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
 
         //  DatabaseSetup.setupDatabase();

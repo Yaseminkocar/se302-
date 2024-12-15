@@ -42,9 +42,7 @@
             <Button text="Add New Student" fx:id="addButton" />
             <Button text="Remove Student" fx:id="removeButton" />
             <Button text="Assign to Class" fx:id="assignButton" />
-            <Button text="Search" fx:id="Search" />
             <Button text="Help" fx:id="helpButton" />
-
         </HBox>
     </center>
 </BorderPane>

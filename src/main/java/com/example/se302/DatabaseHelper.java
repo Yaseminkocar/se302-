@@ -336,16 +336,48 @@ public class DatabaseHelper {
         return results;
 
 
-}
+    }
 
     public static List<String> searchCoursesByStudent(String studentName) {
+        List<String> results = new ArrayList<>();
+        String query = """
+        SELECT GROUP_CONCAT(DISTINCT courses.course_name) AS courses
+        FROM course_students
+        INNER JOIN students ON course_students.student_id = students.id
+        INNER JOIN courses ON course_students.course_id = courses.id
+        WHERE students.student_name = ?
+        GROUP BY students.student_name;
+    """;
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, studentName.trim()); // Kullanıcının girdiği isimle eşleştir
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                String courses = resultSet.getString("courses");
+                if (courses != null) {
+                    results.add(courses);
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return results;
+    }
+
+
+
+    /*public static List<String> searchCoursesByStudent(String studentName) {
         List<String> results = new ArrayList<>();
         String query = """
         SELECT courses.course_name
         FROM courses
         INNER JOIN course_students ON courses.id = course_students.course_id
         INNER JOIN students ON students.id = course_students.student_id
-        WHERE students.student_name LIKE ?;
+        WHERE students.student_name COLLATE NOCASE LIKE ?;
     """;
 
         try (Connection connection = DriverManager.getConnection(DB_PATH);
@@ -363,6 +395,8 @@ public class DatabaseHelper {
 
         return results;
     }
+
+     */
 
 
 
