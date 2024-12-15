@@ -13,6 +13,26 @@ import static com.example.se302.DatabaseHelper.courseExists;
 public class CSVToDatabase {
 
     private static final String DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
+    private static final String CSV_FILE_PATH = "C:/database/ClassroomCapacity.csv";
+
+    private static void createDatabaseTable() {
+        String createTableSQL = """
+            CREATE TABLE IF NOT EXISTS classroom_capacity (
+                Classroom TEXT PRIMARY KEY,
+                Capacity INTEGER
+            );
+            """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(createTableSQL)) {
+
+            statement.execute();
+            System.out.println("Table 'classroom_capacity' created successfully.");
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
 
    /* public static void importCSV(String filePath) {
@@ -126,7 +146,12 @@ public class CSVToDatabase {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
     }
+
+
+
+
 
     private static List<String[]> readCSVFile(String filePath) {
         List<String[]> coursesAndStudents = new ArrayList<>();
@@ -174,7 +199,62 @@ public class CSVToDatabase {
                 }
             }
         }
-        return -1; // Bulunamazsa -1 döner
+        return -1; // Bulunamazsa -1 döner
+}
+
+    public static void importClassroomCapacity(String filePath) {
+        // Tablo oluşturma sorgusu
+        String createTableSQL = """
+            CREATE TABLE IF NOT EXISTS classroom_capacity (
+                Classroom TEXT PRIMARY KEY,
+                Capacity INTEGER
+            );
+            """;
+
+        // Veri ekleme sorgusu
+        String insertSQL = "INSERT OR IGNORE INTO classroom_capacity (Classroom, Capacity) VALUES (?, ?)";
+
+        try (Connection connection = DriverManager.getConnection(CSV_FILE_PATH )) {
+            // Veritabanı oluştur ve tabloyu hazırla
+            try (PreparedStatement createTableStmt = connection.prepareStatement(createTableSQL)) {
+                createTableStmt.execute();
+                System.out.println("Table 'classroom_capacity' created successfully.");
+            }
+
+            // CSV dosyasını oku ve verileri ekle
+            try (BufferedReader reader = new BufferedReader(new FileReader(filePath));
+                 PreparedStatement insertStmt = connection.prepareStatement(insertSQL)) {
+
+                String line;
+                boolean isFirstLine = true;
+
+                while ((line = reader.readLine()) != null) {
+                    if (isFirstLine) {
+                        isFirstLine = false; // Başlık satırını atla
+                        continue;
+                    }
+
+                    // CSV'den veriyi oku
+                    String[] columns = line.split(";");
+                    if (columns.length >= 2) {
+                        String classroom = columns[0].trim();
+                        int capacity = Integer.parseInt(columns[1].trim());
+
+                        // Veriyi tabloya ekle
+                        insertStmt.setString(1, classroom);
+                        insertStmt.setInt(2, capacity);
+                        insertStmt.addBatch();
+                    }
+                }
+
+                // Tüm verileri ekle
+                insertStmt.executeBatch();
+                System.out.println("Classroom capacities imported successfully into ClassroomCapacity.db.");
+            }
+
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
