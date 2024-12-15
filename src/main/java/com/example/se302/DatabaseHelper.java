@@ -398,6 +398,104 @@ public class DatabaseHelper {
 
      */
 
+    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
+
+    // Classroom kapasitelerini getir
+    public static List<String> getClassroomCapacities() {
+        List<String> capacities = new ArrayList<>();
+        String query = "SELECT Classroom, Capacity FROM classroom_capacity";
+
+        try (Connection connection = DriverManager.getConnection(CLASSROOM_DB_PATH);
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+
+            while (resultSet.next()) {
+                String classroom = resultSet.getString("Classroom");
+                int capacity = resultSet.getInt("Capacity");
+                capacities.add("Classroom: " + classroom + ", Capacity: " + capacity);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return capacities;
+    }
+
+    // Belirli bir sınıfın kapasitesini getir
+    public static int getClassroomCapacity(String classroomName) {
+        String query = "SELECT Capacity FROM classroom_capacity WHERE Classroom = ?";
+        try (Connection connection = DriverManager.getConnection(CLASSROOM_DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, classroomName);
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                return resultSet.getInt("Capacity");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return -1; // Sınıf bulunamazsa -1 döner
+}
+
+    public static int getStudentCountForCourse(String courseName) {
+        String query = """
+        SELECT COUNT(DISTINCT students.id) AS student_count
+        FROM course_students
+        INNER JOIN courses ON course_students.course_id = courses.id
+        INNER JOIN students ON course_students.student_id = students.id
+        WHERE courses.course_name = ?;
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, courseName);
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                return resultSet.getInt("student_count");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return 0; // Eğer bir hata oluşursa veya sonuç yoksa 0 döner
+    }
+
+    public static List<String> getAvailableClassrooms(String courseName) {
+        int studentCount = getStudentCountForCourse(courseName); // İlk veritabanından öğrenci sayısını al
+
+        if (studentCount <= 0) {
+            System.out.println("No students found for course: " + courseName);
+            return new ArrayList<>();
+        }
+
+        String query = "SELECT Classroom, Capacity FROM classroom_capacity WHERE Capacity >= ?";
+
+        List<String> availableClassrooms = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection(CLASSROOM_DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setInt(1, studentCount); // Kapasiteyi öğrenci sayısına göre filtrele
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                String classroom = resultSet.getString("Classroom");
+                int capacity = resultSet.getInt("Capacity");
+                availableClassrooms.add("Classroom: " + classroom + ", Capacity: " + capacity);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return availableClassrooms;
+    }
+
 
 
 
