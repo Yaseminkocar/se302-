@@ -34,66 +34,20 @@ public class CSVToDatabase {
         }
     }
 
-
-   /* public static void importCSV(String filePath) {
-        String insertSQL = "INSERT OR IGNORE INTO courses (course_name, time_to_start, duration, lecturer) VALUES (?, ?, ?, ?)";
-
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement preparedStatement = connection.prepareStatement(insertSQL);
-             BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-
-            String line;
-            boolean isFirstLine = true;
-
-            while ((line = reader.readLine()) != null) {
-                if (isFirstLine) {
-                    isFirstLine = false;
-                    continue; // Başlık satırını atla
-                }
-
-                String[] columns = line.split(";");
-                if (columns.length >= 4) {
-                    String courseName = columns[0].trim();
-                    String timeToStart = columns[1].trim();
-                    int duration = Integer.parseInt(columns[2].trim());
-                    String lecturer = columns[3].trim();
-
-                    // Kaydın varlığını kontrol et
-                    if (!courseExists(courseName, timeToStart)) {
-                        preparedStatement.setString(1, courseName);
-                        preparedStatement.setString(2, timeToStart);
-                        preparedStatement.setInt(3, duration);
-                        preparedStatement.setString(4, lecturer);
-
-                        preparedStatement.addBatch();
-                    }
-                }
-            }
-
-            preparedStatement.executeBatch(); // Tüm kayıtları bir seferde ekle
-            System.out.println("Data imported successfully.");
-
-        } catch (SQLException | IOException e) {
-            e.printStackTrace();
- }
-
-
-    }*/
-
     public static void importCSV(String filePath) {
         HashSet<String> existingStudents = new HashSet<>();
         List<String[]> coursesAndStudents = readCSVFile(filePath);
 
         try (Connection connection = DriverManager.getConnection(DB_PATH)) {
-            // Ders ekleme
+
             String insertCourseSQL = "INSERT OR IGNORE INTO courses (course_name, time_to_start, duration, lecturer) VALUES (?, ?, ?, ?)";
             PreparedStatement insertCourseStmt = connection.prepareStatement(insertCourseSQL);
 
-            // Öğrenci ekleme
+
             String insertStudentSQL = "INSERT OR IGNORE INTO students (student_name) VALUES (?)";
             PreparedStatement insertStudentStmt = connection.prepareStatement(insertStudentSQL);
 
-            // Ders-Öğrenci ilişkilendirme
+
             String selectStudentIdSQL = "SELECT id FROM students WHERE student_name = ?";
             String insertCourseStudentSQL = "INSERT INTO course_students (course_id, student_id) VALUES (?, ?)";
             PreparedStatement selectStudentIdStmt = connection.prepareStatement(selectStudentIdSQL);
@@ -106,21 +60,21 @@ public class CSVToDatabase {
                 String lecturer = record[3];
                 String studentName = record[4];
 
-                // 1. Ders ekle
+
                 insertCourseStmt.setString(1, courseName);
                 insertCourseStmt.setString(2, timeToStart);
                 insertCourseStmt.setInt(3, duration);
                 insertCourseStmt.setString(4, lecturer);
                 insertCourseStmt.addBatch();
 
-                // 2. Öğrenciyi ekle
+
                 if (!existingStudents.contains(studentName)) {
                     insertStudentStmt.setString(1, studentName);
                     insertStudentStmt.executeUpdate();
                     existingStudents.add(studentName);
                 }
 
-                // 3. Öğrenci ID'sini al
+
                 int studentId = -1;
                 selectStudentIdStmt.setString(1, studentName);
                 try (ResultSet rs = selectStudentIdStmt.executeQuery()) {
@@ -129,7 +83,7 @@ public class CSVToDatabase {
                     }
                 }
 
-                // 4. Ders-Öğrenci ilişkilendir
+
                 if (studentId != -1) {
                     int courseId = getCourseId(connection, courseName);
                     if (courseId != -1) {
@@ -140,7 +94,7 @@ public class CSVToDatabase {
                 }
             }
 
-            insertCourseStmt.executeBatch(); // Tüm dersleri ekle
+            insertCourseStmt.executeBatch();
             System.out.println("Data imported successfully.");
 
         } catch (SQLException e) {
@@ -148,9 +102,6 @@ public class CSVToDatabase {
         }
 
     }
-
-
-
 
 
     private static List<String[]> readCSVFile(String filePath) {
@@ -163,17 +114,17 @@ public class CSVToDatabase {
             while ((line = br.readLine()) != null) {
                 if (isFirstLine) {
                     isFirstLine = false;
-                    continue; // Başlık satırını atla
+                    continue;
                 }
 
                 String[] columns = line.split(";");
-                if (columns.length >= 5) { // En az 5 sütun kontrolü
+                if (columns.length >= 5) {
                     String courseName = columns[0].trim();
                     String timeToStart = columns[1].trim();
                     String duration = columns[2].trim();
                     String lecturer = columns[3].trim();
 
-                    // Öğrencileri sütunlardan ayır
+
                     for (int i = 4; i < columns.length; i++) {
                         String studentName = columns[i].trim();
                         if (!studentName.isEmpty()) {
@@ -199,11 +150,11 @@ public class CSVToDatabase {
                 }
             }
         }
-        return -1; // Bulunamazsa -1 döner
+        return -1;
 }
 
     public static void importClassroomCapacity(String filePath) {
-        // Tablo oluşturma sorgusu
+
         String createTableSQL = """
             CREATE TABLE IF NOT EXISTS classroom_capacity (
                 Classroom TEXT PRIMARY KEY,
@@ -211,17 +162,17 @@ public class CSVToDatabase {
             );
             """;
 
-        // Veri ekleme sorgusu
+
         String insertSQL = "INSERT OR IGNORE INTO classroom_capacity (Classroom, Capacity) VALUES (?, ?)";
 
         try (Connection connection = DriverManager.getConnection(CSV_FILE_PATH )) {
-            // Veritabanı oluştur ve tabloyu hazırla
+
             try (PreparedStatement createTableStmt = connection.prepareStatement(createTableSQL)) {
                 createTableStmt.execute();
                 System.out.println("Table 'classroom_capacity' created successfully.");
             }
 
-            // CSV dosyasını oku ve verileri ekle
+
             try (BufferedReader reader = new BufferedReader(new FileReader(filePath));
                  PreparedStatement insertStmt = connection.prepareStatement(insertSQL)) {
 
@@ -234,7 +185,7 @@ public class CSVToDatabase {
                         continue;
                     }
 
-                    // CSV'den veriyi oku
+
                     String[] columns = line.split(";");
                     if (columns.length >= 2) {
                         String classroom = columns[0].trim();
@@ -247,7 +198,7 @@ public class CSVToDatabase {
                     }
                 }
 
-                // Tüm verileri ekle
+
                 insertStmt.executeBatch();
                 System.out.println("Classroom capacities imported successfully into ClassroomCapacity.db.");
             }

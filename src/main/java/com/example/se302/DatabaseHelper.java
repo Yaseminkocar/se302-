@@ -8,10 +8,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DatabaseHelper {
 
@@ -176,33 +173,6 @@ public class DatabaseHelper {
         return courses;
     }
 
-    // Bir derse kayıtlı öğrencileri al
-    public static List<String> getStudentsByCourse(String courseName) {
-        List<String> students = new ArrayList<>();
-        String query = """
-            SELECT students.student_name
-            FROM students
-            INNER JOIN course_students ON students.id = course_students.student_id
-            INNER JOIN courses ON courses.id = course_students.course_id
-            WHERE courses.course_name = ?;
-            """;
-
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-
-            preparedStatement.setString(1, courseName);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            while (resultSet.next()) {
-                students.add(resultSet.getString("student_name"));
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return students;
-    }
 
     // Yeni bir ders ekle
     public static void addCourse(String courseName, String timeToStart, int duration, String lecturer) {
@@ -412,7 +382,7 @@ public class DatabaseHelper {
             e.printStackTrace();
         }
         return -1; // Sınıf bulunamazsa -1 döner
-}
+    }
 
     public static int getStudentCountForCourse(String courseName) {
         String query = """
@@ -482,6 +452,7 @@ public class DatabaseHelper {
             "15:50 - 16:35"
     };
 
+
     public static Map<String, Map<String, String>> getWeeklyScheduleForStudentWithTimes(String studentName) {
         String query = """
         SELECT DISTINCT courses.course_name, courses.time_to_start
@@ -513,12 +484,20 @@ public class DatabaseHelper {
                 String courseName = resultSet.getString("course_name");
                 String timeToStart = resultSet.getString("time_to_start");
 
-                // Gün ve saat eşleştirmesi
-                for (String day : days) {
-                    if (timeToStart.toLowerCase().contains(day.toLowerCase())) {
-                        for (String time : TIME_SLOTS) {
-                            if (timeToStart.contains(time.split(" ")[0])) {
-                                schedule.get(day).put(time, courseName);
+                // time_to_start'ı parse et
+                String[] parts = timeToStart.split(" "); // Örn: ["Monday", "08:30"]
+                if (parts.length == 2) {
+                    String day = parts[0];
+                    String time = parts[1];
+
+                    // Gün ve saat eşleşmesi
+                    for (String scheduledDay : days) {
+                        if (day.equalsIgnoreCase(scheduledDay)) {
+                            for (String slot : TIME_SLOTS) {
+                                if (slot.contains(time)) { // Doğru zaman dilimini bul
+                                    schedule.get(scheduledDay).put(slot, courseName);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -532,8 +511,88 @@ public class DatabaseHelper {
         return schedule;
     }
 
+    public static List<String> getStudentsByCourse(String courseName) {
+        List<String> students = new ArrayList<>(); // Öğrenci isimlerini tutacak liste
+        String query = """
+        SELECT DISTINCT  students.student_name
+        FROM students
+        INNER JOIN course_students ON students.id = course_students.student_id
+        INNER JOIN courses ON course_students.course_id = courses.id
+        WHERE courses.course_name = ?;
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, courseName);
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                String studentName = resultSet.getString("student_name");
+                students.add(studentName); // Öğrenciyi listeye ekle
+            }
+
+            System.out.println("Students taking the course " + courseName + ": " + students);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return students; // Listeyi döndür
+    }
+
+
+    public static boolean checkAndAddStudentToCourse(String studentName, String courseName) {
+        String conflictQuery = """
+        SELECT 1
+        FROM course_students cs
+        INNER JOIN students s ON cs.student_id = s.id
+        INNER JOIN courses c1 ON cs.course_id = c1.id
+        INNER JOIN courses c2 ON c2.course_name = ?
+        WHERE s.student_name = ?
+        AND c1.time_to_start = c2.time_to_start;
+    """;
+
+        String addStudentQuery = """
+        INSERT INTO course_students (student_id, course_id)
+        VALUES (
+            (SELECT id FROM students WHERE student_name = ?),
+            (SELECT id FROM courses WHERE course_name = ?)
+        );
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement conflictStmt = connection.prepareStatement(conflictQuery);
+             PreparedStatement addStmt = connection.prepareStatement(addStudentQuery)) {
+
+            // Çakışma kontrolü
+            conflictStmt.setString(1, courseName);
+            conflictStmt.setString(2, studentName);
+            ResultSet resultSet = conflictStmt.executeQuery();
+
+            if (resultSet.next()) {
+                System.out.println("Conflict: The student already has a course at this time.");
+                return false; // Çakışma var
+            }
+
+            // Öğrenciyi derse ekle
+            addStmt.setString(1, studentName);
+            addStmt.setString(2, courseName);
+            int rowsAffected = addStmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                System.out.println("Student added successfully!");
+                return true;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 
 
 
 
 }
+

@@ -25,7 +25,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.example.se302.DatabaseHelper.TIME_SLOTS;
 
 public class SchoolManagementApp extends Application {
 
@@ -41,7 +40,7 @@ public class SchoolManagementApp extends Application {
             "15:50 - 16:35"
     };
 
-    // İlk ekran: Ana sayfa
+
     private BorderPane createMainMenu(Stage primaryStage) {
 
         BorderPane mainMenuLayout = new BorderPane();
@@ -58,7 +57,7 @@ public class SchoolManagementApp extends Application {
         MenuItem exitItem = new MenuItem("Exit");
         fileMenu.getItems().addAll(newItem, openItem, saveItem, saveAsItem, exitItem);
 
-        // "Student Management" menüsü
+
         Menu studentManagementMenu = new Menu("Student Management");
         MenuItem addStudentItem = new MenuItem("Add New Student");
         MenuItem removeStudentItem = new MenuItem("Remove Student");
@@ -101,15 +100,22 @@ public class SchoolManagementApp extends Application {
             primaryStage.setScene(searchStudentScene);
         });
 
+        MenuItem searchCoursesItem = new MenuItem("Search Courses");
+        searchCoursesItem.setOnAction(e -> {
+            Scene searchCoursesScene = createSearchCoursesScene(primaryStage);
+            primaryStage.setScene(searchCoursesScene);
+        });
 
-        searchMenu.getItems().addAll(searchItem, searchStudentItem);
+
+
+        searchMenu.getItems().addAll(searchItem, searchStudentItem,searchCoursesItem)
+        ;
         Menu helpMenu = new Menu ("Help");
         MenuItem help = new MenuItem("Help");
         helpMenu.getItems().addAll(help);
 
 
 
-        // "Add New Student" butonuna tıklanınca yeni ekrana geçilecek
         addStudentItem.setOnAction(e -> {
             Scene addStudentScene = createAddStudentScene(primaryStage);
             primaryStage.setScene(addStudentScene);
@@ -132,12 +138,20 @@ public class SchoolManagementApp extends Application {
         });
         searchMenu.getItems().add(findClassroomsItem);
 
+        MenuItem addStudentToCourseItem = new MenuItem("Add Student to Course");
+        addStudentToCourseItem.setOnAction(e -> {
+            Scene addStudentScene = createAddStudentToCourseScene(primaryStage);
+            primaryStage.setScene(addStudentScene);
+        });
 
-        // Menüleri ekleyelim
+        studentManagementMenu.getItems().add(addStudentToCourseItem);
+
+
+
         menuBar.getMenus().addAll(fileMenu, studentManagementMenu,classroomMenu,searchMenu, helpMenu);
         mainMenuLayout.setTop(menuBar);
 
-        // Ana menü sayfasına bir içerik ekleyebiliriz
+
         Label welcomeLabel = new Label("Welcome to Student Manager!");
         welcomeLabel.setStyle("-fx-font-size: 20px;");
         mainMenuLayout.setCenter(welcomeLabel);
@@ -145,16 +159,95 @@ public class SchoolManagementApp extends Application {
         return mainMenuLayout;
     }
 
+    private Scene createSearchCoursesScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        // Ders adı için input alanı
+        Label courseLabel = new Label("Enter a course name to search:");
+        TextField courseField = new TextField();
+        Button searchButton = new Button("Search");
+
+        // Sonuçları göstermek için ListView
+        ListView<String> resultsList = new ListView<>();
+
+        // Arama butonu işlevselliği
+        searchButton.setOnAction(e -> {
+            String courseName = courseField.getText().trim();
+            if (!courseName.isEmpty()) {
+                List<String> results = DatabaseHelper.getStudentsByCourse(courseName);
+                resultsList.getItems().clear();
+                if (!results.isEmpty()) {
+                    resultsList.getItems().addAll(results);
+                } else {
+                    resultsList.getItems().add("No students found for course: " + courseName);
+                }
+            } else {
+                resultsList.getItems().clear();
+                resultsList.getItems().add("Please enter a course name.");
+            }
+        });
+
+        // Geri butonu
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        // Layout'a elemanları ekleme
+        layout.getChildren().addAll(courseLabel, courseField, searchButton, resultsList, backButton);
+
+        return new Scene(layout, 800, 600);
+    }
+
+    private Scene createAddStudentToCourseScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        // Öğrenci ve ders adı input alanları
+        Label studentLabel = new Label("Student Name:");
+        TextField studentField = new TextField();
+
+        Label courseLabel = new Label("Course Name:");
+        TextField courseField = new TextField();
+
+        Button addButton = new Button("Add Student to Course");
+        Label resultLabel = new Label();
+
+        addButton.setOnAction(e -> {
+            String studentName = studentField.getText().trim();
+            String courseName = courseField.getText().trim();
+
+            if (!studentName.isEmpty() && !courseName.isEmpty()) {
+                boolean success = DatabaseHelper.checkAndAddStudentToCourse(studentName, courseName);
+                if (success) {
+                    resultLabel.setText("Student added to course successfully!");
+                } else {
+                    resultLabel.setText("Error: Time conflict or invalid input.");
+                }
+            } else {
+                resultLabel.setText("Please fill out all fields.");
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, addButton, resultLabel, backButton);
+
+        return new Scene(layout, 400, 300);
+    }
+
+
+
     private Scene createWeeklyScheduleScene(Stage primaryStage) {
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
 
-        // Öğrenci adı girişi
+
         Label studentLabel = new Label("Enter a student name:");
         TextField studentField = new TextField();
         Button findButton = new Button("Show Weekly Schedule");
 
-        // TableView oluştur
+
         TableView<Map<String, String>> tableView = new TableView<>();
         TableColumn<Map<String, String>, String> timeColumn = new TableColumn<>("Time");
         timeColumn.setCellValueFactory(data ->
@@ -203,28 +296,28 @@ public class SchoolManagementApp extends Application {
 
 
     private Scene createAvailableClassroomsScene(Stage primaryStage) {
-        // Layout oluştur
+
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
 
-        // Ders adı girişi için Label ve TextField
+
         Label courseLabel = new Label("Enter a course name:");
         TextField courseField = new TextField();
 
-        // Uygun sınıfları bulmak için Button
+
         Button findButton = new Button("Find Available Classrooms");
 
-        // Sonuçları göstermek için ListView
+
         ListView<String> resultList = new ListView<>();
 
-        // Dersin mevcut kapasitesini göstermek için Label
+
         Label courseCapacityLabel = new Label("Course capacity: Not available");
 
-        // Arama işlemi
+
         findButton.setOnAction(e -> {
             String courseName = courseField.getText().trim();
             if (!courseName.isEmpty()) {
-                // Ders kapasitesini al ve göster
+
                 int studentCount = DatabaseHelper.getStudentCountForCourse(courseName);
                 if (studentCount > 0) {
                     courseCapacityLabel.setText("Current Course capacity: " + studentCount + " students");
@@ -232,7 +325,7 @@ public class SchoolManagementApp extends Application {
                     courseCapacityLabel.setText("Course capacity: Not found");
                 }
 
-                // Uygun sınıfları al ve listele
+
                 List<String> classrooms = DatabaseHelper.getAvailableClassrooms(courseName);
                 resultList.getItems().clear();
                 if (!classrooms.isEmpty()) {
@@ -241,24 +334,24 @@ public class SchoolManagementApp extends Application {
                     resultList.getItems().add("No available classrooms found for course: " + courseName);
                 }
             } else {
-                // Ders adı girilmemişse uyarı mesajı göster
+
                 courseCapacityLabel.setText("Course capacity: Not available");
                 resultList.getItems().clear();
                 resultList.getItems().add("Please enter a course name.");
             }
         });
 
-        // Geri dönmek için Back Button
+
         Button backButton = new Button("Back to Main Menu");
         backButton.setOnAction(e -> {
             Scene mainMenuScene = new Scene(createMainMenu(primaryStage), 800, 600);
             primaryStage.setScene(mainMenuScene);
         });
 
-        // Layout içine bileşenleri ekle
+
         layout.getChildren().addAll(courseLabel, courseField, findButton, courseCapacityLabel, resultList, backButton);
 
-        // Scene oluştur ve döndür
+
         return new Scene(layout, 800, 600);
     }
 
@@ -304,7 +397,7 @@ public class SchoolManagementApp extends Application {
         searchButton.setOnAction(e -> {
             String lecturerName = searchField.getText().trim();
             if (!lecturerName.isEmpty()) {
-                // Veritabanında hoca adına göre dersleri ara
+
                 List<String> results = DatabaseHelper.searchCoursesByLecturer(lecturerName);
                 resultsList.getItems().clear();
                 if (!results.isEmpty()) {
