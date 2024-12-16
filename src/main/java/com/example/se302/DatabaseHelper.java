@@ -600,6 +600,55 @@ public class DatabaseHelper {
         return schedule;
     }
 
+    public static boolean checkAndAddStudentToCourse(String studentName, String courseName) {
+        String conflictQuery = """
+        SELECT 1
+        FROM course_students cs
+        INNER JOIN students s ON cs.student_id = s.id
+        INNER JOIN courses c1 ON cs.course_id = c1.id
+        INNER JOIN courses c2 ON c2.course_name = ?
+        WHERE s.student_name = ?
+        AND c1.time_to_start = c2.time_to_start;
+    """;
+
+        String addStudentQuery = """
+        INSERT INTO course_students (student_id, course_id)
+        VALUES (
+            (SELECT id FROM students WHERE student_name = ?),
+            (SELECT id FROM courses WHERE course_name = ?)
+        );
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement conflictStmt = connection.prepareStatement(conflictQuery);
+             PreparedStatement addStmt = connection.prepareStatement(addStudentQuery)) {
+
+            // Çakışma kontrolü
+            conflictStmt.setString(1, courseName);
+            conflictStmt.setString(2, studentName);
+            ResultSet resultSet = conflictStmt.executeQuery();
+
+            if (resultSet.next()) {
+                System.out.println("Conflict: The student already has a course at this time.");
+                return false; // Çakışma var
+            }
+
+            // Öğrenciyi derse ekle
+            addStmt.setString(1, studentName);
+            addStmt.setString(2, courseName);
+            int rowsAffected = addStmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                System.out.println("Student added successfully!");
+                return true;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
 
 
 

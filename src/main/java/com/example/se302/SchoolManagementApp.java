@@ -18,11 +18,10 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
 import java.sql.*;
 import java.util.*;
-
-
+import java.util.ArrayList;
+import java.util.List;
 
 public class SchoolManagementApp extends Application {
 
@@ -38,15 +37,13 @@ public class SchoolManagementApp extends Application {
             "15:50 - 16:35"
     };
 
-    // İlk ekran: Ana sayfa
     private BorderPane createMainMenu(Stage primaryStage) {
 
         BorderPane mainMenuLayout = new BorderPane();
 
-        // Menü çubuğu
+
         MenuBar menuBar = new MenuBar();
 
-        // "File" menüsü
         Menu fileMenu = new Menu("File");
         MenuItem newItem = new MenuItem("New");
         MenuItem openItem = new MenuItem("Open");
@@ -55,22 +52,29 @@ public class SchoolManagementApp extends Application {
         MenuItem exitItem = new MenuItem("Exit");
         fileMenu.getItems().addAll(newItem, openItem, saveItem, saveAsItem, exitItem);
 
-        // "Student Management" menüsü
         Menu studentManagementMenu = new Menu("Student Management");
-        MenuItem addStudentItem = new MenuItem("Add New Student");
         MenuItem removeStudentItem = new MenuItem("Remove Student");
         MenuItem assignToClass = new MenuItem("Assign to Class");
+
+        assignToClass.setOnAction(e -> {
+            Scene assign = createAssignToClass(primaryStage);
+            primaryStage.setScene(assign);
+        });
 
         MenuItem viewWeeklyScheduleItem = new MenuItem("View Student's Weekly Schedule");
         viewWeeklyScheduleItem.setOnAction(e -> {
             Scene weeklyScheduleScene = createWeeklyScheduleScene(primaryStage);
             primaryStage.setScene(weeklyScheduleScene);
         });
+        MenuItem addStudentToCourseItem = new MenuItem("Add Student to Course");
+        addStudentToCourseItem.setOnAction(e -> {
+            Scene addStudentScene = createAddStudentToCourseScene(primaryStage);
+            primaryStage.setScene(addStudentScene);
+        });
 
+        studentManagementMenu.getItems().add(addStudentToCourseItem);
 
-
-
-        studentManagementMenu.getItems().addAll(addStudentItem, removeStudentItem, assignToClass,viewWeeklyScheduleItem);
+        studentManagementMenu.getItems().addAll(removeStudentItem, assignToClass,viewWeeklyScheduleItem);
 
 
         Menu classroomMenu = new Menu("Classroom");
@@ -112,13 +116,6 @@ public class SchoolManagementApp extends Application {
         helpMenu.getItems().addAll(help);
 
 
-
-        // "Add New Student" butonuna tıklanınca yeni ekrana geçilecek
-        addStudentItem.setOnAction(e -> {
-            Scene addStudentScene = createAddStudentScene(primaryStage);
-            primaryStage.setScene(addStudentScene);
-        });
-
         Menu studentCountMenu = new Menu("Student Count");
         MenuItem findStudentCountItem = new MenuItem("Find Student Count");
         findStudentCountItem.setOnAction(e -> {
@@ -148,6 +145,26 @@ public class SchoolManagementApp extends Application {
 
         return mainMenuLayout;
     }
+
+    private Scene createAssignToClass(Stage primaryStage) {
+        // Layout ve TableView oluşturma
+        VBox layout = new VBox(10);
+        TableView<String> tableView = new TableView<>();
+
+        TableColumn<String, String> column = new TableColumn<>("Assigned Classes");
+        column.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue()));
+
+        tableView.getColumns().add(column);
+        tableView.getItems().addAll(assignAllCoursesToClassrooms());
+
+        // Geri butonu
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(new Label("Assigned Classes"), tableView, backButton);
+        return new Scene(layout, 800, 600);
+    }
+
 
     private Scene createWeeklyScheduleScene(Stage primaryStage) {
         VBox layout = new VBox(10);
@@ -335,6 +352,44 @@ public class SchoolManagementApp extends Application {
 
         return new Scene(layout, 800, 600);
     }
+    private Scene createAddStudentToCourseScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        Label studentLabel = new Label("Student Name:");
+        TextField studentField = new TextField();
+
+        Label courseLabel = new Label("Course Name:");
+        TextField courseField = new TextField();
+
+        Button addButton = new Button("Add Student to Course");
+        Label resultLabel = new Label();
+
+        addButton.setOnAction(e -> {
+            String studentName = studentField.getText().trim();
+            String courseName = courseField.getText().trim();
+
+            if (!studentName.isEmpty() && !courseName.isEmpty()) {
+                boolean success = DatabaseHelper.checkAndAddStudentToCourse(studentName, courseName);
+                if (success) {
+                    resultLabel.setText("Student added to course successfully!");
+                } else {
+                    resultLabel.setText("Error: Time conflict or invalid input.");
+                }
+            } else {
+                resultLabel.setText("Please fill out all fields.");
+            }
+        });
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> {
+            Scene mainMenuScene = new Scene(createMainMenu(primaryStage), 800, 600);
+            primaryStage.setScene(mainMenuScene);
+        });
+
+        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, addButton, resultLabel, backButton);
+
+        return new Scene(layout, 800, 600);
+    }
 
     private Scene createSearchStudentScene(Stage primaryStage) {
         VBox layout = new VBox(10);
@@ -380,10 +435,8 @@ public class SchoolManagementApp extends Application {
         TextField searchField = new TextField();
         Button searchButton = new Button("Search");
 
-        // TableView Tanımlama
         TableView<Map<String, Object>> tableView = new TableView<>();
 
-        // Sütunların Tanımlanması
         TableColumn<Map<String, Object>, String> lecturerColumn = new TableColumn<>("Lecturer");
         lecturerColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get("Lecturer").toString()));
 
@@ -491,42 +544,6 @@ public class SchoolManagementApp extends Application {
         layout.getChildren().addAll(new Label("Classroom Capacities"), tableView, backButton);
         return new Scene(layout, 800, 600);
     }
-
-   /* private Scene createSearchStudentScene(Stage primaryStage) {
-
-        VBox layout = new VBox(10);  // 10px aralıkla VBox yerleşimi
-        layout.setPadding(new Insets(10));
-
-        // Öğrenci adı girebilmek için TextField
-        TextField studentNameField = new TextField();
-        studentNameField.setPromptText("Enter student name");
-
-        // Arama butonu
-        Button searchButton = new Button("Search");
-        Label resultLabel = new Label();
-
-        searchButton.setOnAction(e -> {
-            String studentName = studentNameField.getText();
-            List<String> courses = DatabaseHelper.searchCoursesByStudent(studentName); // Veritabanından dersleri al
-            if (courses.isEmpty()) {
-                resultLabel.setText("No courses found for student: " + studentName);
-            } else {
-                resultLabel.setText("Courses for " + studentName + ": " + String.join(", ", courses));
-            }
-        });
-
-        // Ana menüye dönüş butonu
-        Button backButton = new Button("Back");
-        // backButton.setOnAction(e -> primaryStage.setScene(createMainScene(primaryStage))); // Ana menüye dön
-
-        layout.getChildren().addAll(studentNameField, searchButton, resultLabel, backButton);
-
-        return new Scene(layout, 400, 300);
-    }
-
-    */
-
-
 
 
     public static List<String> searchCoursesByStudent(String studentName) {
@@ -667,6 +684,84 @@ public class SchoolManagementApp extends Application {
         return scene;
     }
 
+        private static final String TIMETABLE_DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
+        private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
+
+    public static List<String> assignAllCoursesToClassrooms() {
+        List<String> assignments = new ArrayList<>();
+        Map<String, Set<String>> schedule = new HashMap<>();
+
+        try (Connection timetableConnection = DriverManager.getConnection(TIMETABLE_DB_PATH)) {
+
+            String courseQuery = """
+                SELECT courses.course_name,
+                               COUNT(DISTINCT students.id) AS student_count,
+                               courses.time_to_start
+                        FROM course_students
+                        INNER JOIN courses ON course_students.course_id = courses.id
+                        INNER JOIN students ON course_students.student_id = students.id
+                        GROUP BY courses.course_name, courses.time_to_start;
+            """;
+
+            try (PreparedStatement courseStatement = timetableConnection.prepareStatement(courseQuery);
+                 ResultSet courseResultSet = courseStatement.executeQuery()) {
+
+                while (courseResultSet.next()) {
+                    String courseName = courseResultSet.getString("course_name");
+                    int studentCount = courseResultSet.getInt("student_count");
+                    String timeToStart = courseResultSet.getString("time_to_start");
+
+                    String classroomAssignment = findBestClassroom(courseName, studentCount, timeToStart, schedule);
+                    assignments.add(classroomAssignment);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return assignments;
+    }
+
+    private static String findBestClassroom(String courseName, int studentCount, String timeToStart, Map<String, Set<String>> schedule) {
+        try (Connection classroomConnection = DriverManager.getConnection(CLASSROOM_DB_PATH)) {
+
+            String classroomQuery = """
+                SELECT Classroom, Capacity 
+                FROM classroom_capacity 
+                WHERE Capacity >= ? 
+                ORDER BY Capacity ASC;
+            """;
+
+            try (PreparedStatement classroomStatement = classroomConnection.prepareStatement(classroomQuery)) {
+                classroomStatement.setInt(1, studentCount);
+
+                try (ResultSet classroomResultSet = classroomStatement.executeQuery()) {
+                    while (classroomResultSet.next()) {
+                        String classroom = classroomResultSet.getString("Classroom");
+                        int capacity = classroomResultSet.getInt("Capacity");
+
+                        String dayTimeKey = timeToStart;
+
+                        if (!schedule.containsKey(classroom)) {
+                            schedule.put(classroom, new HashSet<>());
+                        }
+
+                        if (!schedule.get(classroom).contains(dayTimeKey)) {
+                            schedule.get(classroom).add(dayTimeKey);
+                            return "Course: " + courseName + ", Students: " + studentCount +
+                                    ", Assigned Classroom: " + classroom + ", Capacity: " + capacity +
+                                    ", Time: " + timeToStart;
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "Course: " + courseName + ", Students: " + studentCount +
+                ", No suitable classroom found for Time: " + timeToStart;
+    }
+
 
 
     @Override
@@ -799,6 +894,10 @@ public class SchoolManagementApp extends Application {
         System.out.println("DB_PATH: " + DB_PATH);
         SecondDatabase.createDatabaseDirectory(); //bunu bi defa çalıştırıp yoruma alın
         SecondDatabase.importClassroomCapacity(CSV_FILE_PATH);
+
+        List<String> assignments = assignAllCoursesToClassrooms();
+        assignments.forEach(System.out::println);
+
 
         // JavaFX uygulamasını başlat
         launch(args);
