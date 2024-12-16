@@ -20,12 +20,9 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import static com.example.se302.DatabaseHelper.TIME_SLOTS;
+
 
 public class SchoolManagementApp extends Application {
 
@@ -101,8 +98,15 @@ public class SchoolManagementApp extends Application {
             primaryStage.setScene(searchStudentScene);
         });
 
+        MenuItem searchCourseItem = new MenuItem("Search Course Details");
+        searchCourseItem.setOnAction(e -> {
+            Scene searchCourseScene = createSearchCourseScene(primaryStage); // Search Student için sahne oluştur
+            primaryStage.setScene(searchCourseScene);
+        });
 
-        searchMenu.getItems().addAll(searchItem, searchStudentItem);
+
+        searchMenu.getItems().addAll(searchItem, searchStudentItem, searchCourseItem);
+
         Menu helpMenu = new Menu ("Help");
         MenuItem help = new MenuItem("Help");
         helpMenu.getItems().addAll(help);
@@ -368,6 +372,106 @@ public class SchoolManagementApp extends Application {
 
         return new Scene(layout, 800, 600);
     }
+    private Scene createSearchCourseScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        Label searchLabel = new Label("Enter a course name:");
+        TextField searchField = new TextField();
+        Button searchButton = new Button("Search");
+
+        // TableView Tanımlama
+        TableView<Map<String, Object>> tableView = new TableView<>();
+
+        // Sütunların Tanımlanması
+        TableColumn<Map<String, Object>, String> lecturerColumn = new TableColumn<>("Lecturer");
+        lecturerColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get("Lecturer").toString()));
+
+        TableColumn<Map<String, Object>, String> durationColumn = new TableColumn<>("Duration");
+        durationColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get("Duration").toString()));
+
+        TableColumn<Map<String, Object>, String> studentCountColumn = new TableColumn<>("Student Count");
+        studentCountColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get("Student Count").toString()));
+
+        TableColumn<Map<String, Object>, String> viewListColumn = new TableColumn<>("Student List");
+        viewListColumn.setCellFactory(col -> new TableCell<>() {
+            final Button viewButton = new Button("View");
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(viewButton);
+                    viewButton.setOnAction(e -> {
+                        Map<String, Object> rowData = getTableView().getItems().get(getIndex());
+                        List<String> studentList = (List<String>) rowData.get("Student List");
+                        showStudentListPopup(studentList);
+                    });
+                }
+            }
+        });
+
+        tableView.getColumns().addAll(lecturerColumn, durationColumn, studentCountColumn, viewListColumn);
+
+        searchButton.setOnAction(e -> {
+            String courseName = searchField.getText().trim();
+            if (!courseName.isEmpty()) {
+                tableView.getItems().clear();
+
+                Map<String, Object> results = DatabaseHelper.searchCourseDetails(courseName);
+                if (results.containsKey("Message")) {
+                    showAlert("Not Found", results.get("Message").toString());
+                } else if (results.containsKey("Error")) {
+                    showAlert("Error", results.get("Error").toString());
+                } else {
+                    Map<String, Object> rowData = new HashMap<>();
+                    rowData.put("Lecturer", results.get("Lecturer"));
+                    rowData.put("Duration", results.get("Duration") + " hrs");
+                    rowData.put("Student Count", results.get("Student Count"));
+                    rowData.put("Student List", results.get("Student List"));
+                    tableView.getItems().add(rowData);
+                }
+            } else {
+                showAlert("Input Error", "Please enter a course name.");
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(searchLabel, searchField, searchButton, tableView, backButton);
+
+        return new Scene(layout, 800, 600);
+    }
+
+
+
+    private void showStudentListPopup(List<String> studentList) {
+        Stage popupStage = new Stage();
+        popupStage.setTitle("Student List");
+
+        ListView<String> listView = new ListView<>();
+        listView.getItems().addAll(studentList);
+
+        VBox layout = new VBox(10, new Label("Students:"), listView);
+        layout.setPadding(new Insets(10));
+
+        Scene scene = new Scene(layout, 300, 400);
+        popupStage.setScene(scene);
+        popupStage.show();
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+
 
     private Scene createClassroomCapacityScene(Stage primaryStage) {
         // Layout ve TableView oluşturma
@@ -565,7 +669,6 @@ public class SchoolManagementApp extends Application {
 
 
 
-
     @Override
     public void start(Stage primaryStage) {
 
@@ -628,7 +731,7 @@ public class SchoolManagementApp extends Application {
             ResultSet courseCodes = statement.executeQuery("""
         SELECT DISTINCT student_name AS code_or_name
         FROM students
-        WHERE student_name GLOB '[A-Z][0-9]'
+        WHERE student_name GLOB '[A-Z]*[0-9]*'
         ORDER BY student_name;
     """);
 
@@ -641,7 +744,7 @@ public class SchoolManagementApp extends Application {
             ResultSet studentNames = statement.executeQuery("""
         SELECT DISTINCT student_name AS code_or_name
         FROM students
-        WHERE student_name NOT GLOB '[A-Z][0-9]'
+        WHERE student_name NOT GLOB '[A-Z]*[0-9]*'
         
     """);
 
@@ -670,8 +773,8 @@ public class SchoolManagementApp extends Application {
             courses ON course_students.course_id = courses.id
         GROUP BY 
             students.student_name
-        ORDER BY 
-            students.student_name;
+        ORDER BY
+            students.student_name
     """);
 
             while (courseStudents.next()) {

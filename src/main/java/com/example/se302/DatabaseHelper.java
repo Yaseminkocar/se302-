@@ -367,6 +367,68 @@ public class DatabaseHelper {
         return results;
     }
 
+    public static Map<String, Object> searchCourseDetails(String courseName) {
+        Map<String, Object> resultMap = new HashMap<>();
+        List<String> studentList = new ArrayList<>();
+        String courseQuery = """
+        SELECT courses.lecturer, courses.duration, COUNT(DISTINCT course_students.student_id) AS student_count
+        FROM courses
+        LEFT JOIN course_students ON courses.id = course_students.course_id
+        WHERE courses.course_name = ?
+        GROUP BY courses.id, courses.lecturer, courses.duration;
+    """;
+
+        String studentQuery = """
+        SELECT DISTINCT students.student_name
+        FROM students
+        INNER JOIN course_students ON students.id = course_students.student_id
+        INNER JOIN courses ON courses.id = course_students.course_id
+        WHERE courses.course_name = ?;
+    """;
+
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db")) {
+
+            // Ders detayları sorgusu
+            try (PreparedStatement courseStmt = connection.prepareStatement(courseQuery)) {
+                courseStmt.setString(1, courseName.trim());
+                ResultSet courseResult = courseStmt.executeQuery();
+
+                if (courseResult.next()) {
+                    resultMap.put("Lecturer", courseResult.getString("lecturer"));
+                    resultMap.put("Duration", courseResult.getInt("duration"));
+                    resultMap.put("Student Count", courseResult.getInt("student_count"));
+                }
+
+
+                else {
+                    resultMap.put("Message", "Course not found");
+                    return resultMap; // Ders bulunamazsa hemen dön
+                }
+            }
+
+            // Öğrenci listesi sorgusu
+            try (PreparedStatement studentStmt = connection.prepareStatement(studentQuery)) {
+                studentStmt.setString(1, courseName.trim());
+                ResultSet studentResult = studentStmt.executeQuery();
+
+                while (studentResult.next()) {
+                    studentList.add(studentResult.getString("student_name"));
+                }
+            }
+
+            resultMap.put("Student List", studentList); // Öğrenci listesi ekleniyor
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            resultMap.put("Error", "Database error occurred: " + e.getMessage());
+        }
+
+        return resultMap;
+    }
+
+
+
 
 
     private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
