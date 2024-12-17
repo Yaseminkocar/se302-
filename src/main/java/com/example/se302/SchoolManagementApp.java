@@ -972,7 +972,7 @@ public class SchoolManagementApp extends Application {
     private void showUpperCaseAlert() {
         String message = "Attention!\n\n"
                 + "When entering a student's name, please use ALL UPPERCASE LETTERS.\n"
-                + "Example: JOHN DOE\n"
+                + "Example: ALİVELİ\n"
                 + "Also when searching lecturers please use first letters as UPPERCASE.\n\n"
                 + "This is required for consistency in the system.";
 
