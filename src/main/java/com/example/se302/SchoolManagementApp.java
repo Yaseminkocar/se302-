@@ -23,7 +23,17 @@ import java.util.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.example.se302.DatabaseHelper.reassignClassroomIfNeeded;
+
 public class SchoolManagementApp extends Application {
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
 
     private static final String[] TIME_SLOTS = {
             "08:30 - 09:15",
@@ -53,13 +63,14 @@ public class SchoolManagementApp extends Application {
         fileMenu.getItems().addAll(newItem, openItem, saveItem, saveAsItem, exitItem);
 
         Menu studentManagementMenu = new Menu("Student Management");
-        MenuItem removeStudentItem = new MenuItem("Remove Student");
-        MenuItem assignToClass = new MenuItem("Assign to Class");
 
-        assignToClass.setOnAction(e -> {
-            Scene assign = createAssignToClass(primaryStage);
-            primaryStage.setScene(assign);
+        MenuItem removeStudentItem = new MenuItem("Remove Student");
+        removeStudentItem.setOnAction(e -> {
+            Scene removeStudentScene = createRemoveStudentScene(primaryStage);
+            primaryStage.setScene(removeStudentScene);
         });
+
+
 
         MenuItem viewWeeklyScheduleItem = new MenuItem("View Student's Weekly Schedule");
         viewWeeklyScheduleItem.setOnAction(e -> {
@@ -72,14 +83,9 @@ public class SchoolManagementApp extends Application {
             primaryStage.setScene(addStudentScene);
         });
 
-        studentManagementMenu.getItems().add(addStudentToCourseItem);
+        // studentManagementMenu.getItems().add(addStudentToCourseItem);
 
-        studentManagementMenu.getItems().addAll(removeStudentItem, assignToClass,viewWeeklyScheduleItem);
-        MenuItem removeStudentItem2 = new MenuItem("Remove Student");
-        removeStudentItem.setOnAction(e -> {
-            Scene removeStudentScene = createRemoveStudentScene(primaryStage);
-            primaryStage.setScene(removeStudentScene);
-        });
+        studentManagementMenu.getItems().addAll(addStudentToCourseItem,removeStudentItem,viewWeeklyScheduleItem);
 
 
         Menu classroomMenu = new Menu("Classroom");
@@ -88,7 +94,17 @@ public class SchoolManagementApp extends Application {
             Scene classroomScene = createClassroomCapacityScene(primaryStage);
             primaryStage.setScene(classroomScene);
         });
-        classroomMenu.getItems().add(viewClassroomCapacities);
+        //    classroomMenu.getItems().add(viewClassroomCapacities);
+
+        MenuItem assignToClass = new MenuItem("Classroom Assignments List");
+
+        assignToClass.setOnAction(e -> {
+            Scene assign = createAssignToClass(primaryStage);
+            primaryStage.setScene(assign);
+        });
+
+        classroomMenu.getItems().addAll(viewClassroomCapacities,assignToClass);
+
 
 
         Menu searchMenu = new Menu("Search");
@@ -116,9 +132,26 @@ public class SchoolManagementApp extends Application {
 
         searchMenu.getItems().addAll(searchItem, searchStudentItem, searchCourseItem);
 
-        Menu helpMenu = new Menu ("Help");
+      /*  Menu helpMenu = new Menu ("Help");
         MenuItem help = new MenuItem("Help");
-        helpMenu.getItems().addAll(help);
+        helpMenu.getItems().addAll(help);*/
+        Menu helpMenu = new Menu("Help");
+        //MenuItem help = new MenuItem("Help");
+        MenuItem howToUseItem = new MenuItem("How to Use");
+
+        howToUseItem.setOnAction(e -> {
+            String howToUseMessage = "Welcome to Student Manager!\n\n"
+                    + "1. Use 'Student Management' to add, remove, or view student schedules.\n"
+                    + "2. Use 'Classroom' to view classroom capacities and assignments.\n"
+                    + "3. Use 'Search' to search for lecturers, students, or courses.\n"
+                    + "4. Use 'Student Count' to find the number of students in a course.\n";
+
+
+
+            showAlert("How to Use Student Manager", howToUseMessage);
+        });
+
+        helpMenu.getItems().addAll(howToUseItem);
 
 
         Menu studentCountMenu = new Menu("Student Count");
@@ -149,6 +182,42 @@ public class SchoolManagementApp extends Application {
         mainMenuLayout.setCenter(welcomeLabel);
 
         return mainMenuLayout;
+    }
+    private Scene createRemoveStudentScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        Label studentLabel = new Label("Student Name:");
+        TextField studentField = new TextField();
+
+        Label courseLabel = new Label("Course Name:");
+        TextField courseField = new TextField();
+
+        Button removeButton = new Button("Remove Student from Course");
+        Label resultLabel = new Label();
+
+        removeButton.setOnAction(e -> {
+            String studentName = studentField.getText().trim();
+            String courseName = courseField.getText().trim();
+
+            if (!studentName.isEmpty() && !courseName.isEmpty()) {
+                boolean success = DatabaseHelper.removeStudentFromCourse(studentName, courseName);
+                if (success) {
+                    resultLabel.setText("Student removed from the course successfully!");
+                } else {
+                    resultLabel.setText("Error: Student not found in the specified course.");
+                }
+            } else {
+                resultLabel.setText("Please enter both student name and course name.");
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, removeButton, resultLabel, backButton);
+
+        return new Scene(layout, 800, 600);
     }
 
     private Scene createAssignToClass(Stage primaryStage) {
@@ -357,6 +426,7 @@ public class SchoolManagementApp extends Application {
 
         return new Scene(layout, 800, 600);
     }
+
     private Scene createAddStudentToCourseScene(Stage primaryStage) {
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
@@ -367,34 +437,82 @@ public class SchoolManagementApp extends Application {
         Label courseLabel = new Label("Course Name:");
         TextField courseField = new TextField();
 
+        Label timeLabel = new Label("Course Start Time:");
+        TextField timeField = new TextField(); // Zaman bilgisi de gerekmekte
+
         Button addButton = new Button("Add Student to Course");
         Label resultLabel = new Label();
 
         addButton.setOnAction(e -> {
             String studentName = studentField.getText().trim();
             String courseName = courseField.getText().trim();
+            String timeToStart = timeField.getText().trim();
 
-            if (!studentName.isEmpty() && !courseName.isEmpty()) {
-                boolean success = DatabaseHelper.checkAndAddStudentToCourse(studentName, courseName);
-                if (success) {
-                    resultLabel.setText("Student added to course successfully!");
-                } else {
-                    resultLabel.setText("Error: Time conflict or invalid input.");
-                }
+            // 1. Input Kontrolü
+            if (studentName.isEmpty() || courseName.isEmpty() || timeToStart.isEmpty()) {
+                showAlert("Input Error", "Please fill out all fields (student, course, and time).");
+                return;
+            }
+
+            // 2. Kurs var mı kontrolü
+            if (!DatabaseHelper.courseExists(courseName, timeToStart)) {
+                showAlert("Not Found", "No such course found at the specified time.");
+                return;
+            }
+
+            // 3. Öğrenci var mı kontrolü - Bu metodu DatabaseHelper içine eklemeniz gerekir.
+            if (!DatabaseHelper.studentExists(studentName)) {
+                showAlert("Not Found", "Student not found. Please ensure the name is correct or register the student first.");
+                return;
+            }
+
+            // 4. Öğrenciyi derse eklemeyi dene
+            boolean success = DatabaseHelper.checkAndAddStudentToCourse(studentName, courseName);
+
+            if (success) {
+                showAlert("Success", "Student added to the course successfully!");
             } else {
-                resultLabel.setText("Please fill out all fields.");
+                // Eklenemediyse zaman çakışması ya da kapasite sorunu olabilir.
+                int currentStudentCount = DatabaseHelper.getStudentCountForCourse(courseName);
+
+                // Varsayımsal bir fonksiyon. Course'un şu an atandığı classroom'u bulup kapasitesini getirir.
+                int classroomCapacity = DatabaseHelper.getClassroomCapacity(courseName);
+
+                if (classroomCapacity != -1 && currentStudentCount >= classroomCapacity) {
+                    // Kapasite yetersiz. Re-assign dene.
+                    Map<String, Set<String>> schedule = new HashMap<>();
+                    int newStudentCount = currentStudentCount + 1;
+                    boolean reassigned = reassignClassroomIfNeeded(courseName, newStudentCount, timeToStart, schedule);
+
+                    if (reassigned) {
+                        // Yeniden dene
+                        boolean secondTry = DatabaseHelper.checkAndAddStudentToCourse(studentName, courseName);
+                        if (secondTry) {
+                            showAlert("Success", "Classroom capacity updated and student added successfully!");
+                        } else {
+                            showAlert("Error", "Failed to add student even after reassigning classrooms. Please try again.");
+                        }
+                    } else {
+                        showAlert("Error", "No suitable classroom found to accommodate increased capacity.");
+                    }
+                } else {
+                    // Kapasite sorunu değilse, bu büyük ihtimalle zaman çakışması veya başka bir hata.
+                    showAlert("Error", "Failed to add student to the course. Possibly a scheduling conflict or another issue.");
+                }
             }
         });
+
         Button backButton = new Button("Back to Main Menu");
         backButton.setOnAction(e -> {
             Scene mainMenuScene = new Scene(createMainMenu(primaryStage), 800, 600);
             primaryStage.setScene(mainMenuScene);
         });
 
-        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, addButton, resultLabel, backButton);
+        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, timeLabel, timeField, addButton, resultLabel, backButton);
 
         return new Scene(layout, 800, 600);
     }
+
 
     private Scene createSearchStudentScene(Stage primaryStage) {
         VBox layout = new VBox(10);
@@ -521,13 +639,7 @@ public class SchoolManagementApp extends Application {
         popupStage.show();
     }
 
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
+
 
 
 
@@ -688,44 +800,100 @@ public class SchoolManagementApp extends Application {
         Scene scene = new Scene(layout, 800, 600);
         return scene;
     }
-    private Scene createRemoveStudentScene(Stage primaryStage) {
+    private Scene createAddNewCourseScene(Stage primaryStage) {
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
 
-        Label studentLabel = new Label("Student Name:");
-        TextField studentField = new TextField();
+        // Kurs Bilgisi Giriş Alanları
+        Label courseNameLabel = new Label("Course Name:");
+        TextField courseNameField = new TextField();
 
-        Label courseLabel = new Label("Course Name:");
-        TextField courseField = new TextField();
+        Label lecturerLabel = new Label("Lecturer Name:");
+        TextField lecturerField = new TextField();
 
-        Button removeButton = new Button("Remove Student from Course");
-        Label resultLabel = new Label();
+        Label courseTimeLabel = new Label("Course Time (e.g., Monday 08:30):");
+        TextField courseTimeField = new TextField();
 
-        removeButton.setOnAction(e -> {
-            String studentName = studentField.getText().trim();
-            String courseName = courseField.getText().trim();
+        Label availableStudentsLabel = new Label("Available Students:");
+        ListView<String> studentListView = new ListView<>();
+        ObservableList<String> allStudents = FXCollections.observableArrayList(DatabaseHelper.getAllStudents());
+        studentListView.setItems(allStudents);
 
-            if (!studentName.isEmpty() && !courseName.isEmpty()) {
-                boolean success = DatabaseHelper.removeStudentFromCourse(studentName, courseName);
-                if (success) {
-                    resultLabel.setText("Student removed from the course successfully!");
-                } else {
-                    resultLabel.setText("Error: Student not found in the specified course.");
-                }
+        Button addStudentButton = new Button("Add Selected Student");
+
+        List<String> addedStudents = new ArrayList<>();
+        ListView<String> addedStudentsList = new ListView<>();
+
+        addStudentButton.setOnAction(e -> {
+            String selectedStudent = studentListView.getSelectionModel().getSelectedItem();
+            if (selectedStudent != null && !addedStudents.contains(selectedStudent)) {
+                addedStudents.add(selectedStudent);
+                addedStudentsList.getItems().add(selectedStudent);
             } else {
-                resultLabel.setText("Please enter both student name and course name.");
+                showAlert("Selection Error", "Student is already added or no student selected.");
             }
+        });
+
+        Button saveButton = new Button("Save Course");
+        saveButton.setOnAction(e -> {
+            String courseName = courseNameField.getText().trim();
+            String lecturer = lecturerField.getText().trim();
+            String courseTime = courseTimeField.getText().trim();
+
+            if (courseName.isEmpty() || lecturer.isEmpty() || courseTime.isEmpty()) {
+                showAlert("Input Error", "Please fill all fields.");
+                return;
+            }
+
+            // 1. Kurs Saati Çakışma Kontrolü
+            if (DatabaseHelper.courseExists(courseName, courseTime)) {
+                showAlert("Conflict Error", "A course already exists at this time!");
+                return;
+            }
+
+            // 2. Öğrenci Zaman Çakışması Kontrolü
+            List<String> conflictingStudents = new ArrayList<>();
+            for (String student : addedStudents) {
+                if (DatabaseHelper.doesStudentHaveTimeConflict(student, courseTime)) {
+                    conflictingStudents.add(student);
+                }
+            }
+
+            if (!conflictingStudents.isEmpty()) {
+                showAlert("Student Conflict", "The following students have time conflicts: "
+                        + String.join(", ", conflictingStudents));
+                return; // İşlemi iptal et
+            }
+
+            // 3. Kursu Ekleyelim ve Öğrencileri Ata
+            DatabaseHelper.addCourse(courseName, courseTime, 1, lecturer);
+            for (String student : addedStudents) {
+                DatabaseHelper.assignStudentToCourse(courseName, student);
+            }
+
+            showAlert("Success", "Course added successfully with selected students!");
+            primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600));
         });
 
         Button backButton = new Button("Back to Main Menu");
         backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
 
-        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, removeButton, resultLabel, backButton);
+        layout.getChildren().addAll(
+                courseNameLabel, courseNameField,
+                lecturerLabel, lecturerField,
+                courseTimeLabel, courseTimeField,
+                availableStudentsLabel, studentListView, addStudentButton,
+                new Label("Selected Students:"), addedStudentsList,
+                saveButton, backButton
+        );
 
         return new Scene(layout, 800, 600);
     }
-        private static final String TIMETABLE_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db";
-        private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/ClassroomCapacity.db";
+
+//maindeki yer
+
+    private static final String TIMETABLE_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db";
+    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/ClassroomCapacity.db";
 
     public static List<String> assignAllCoursesToClassrooms() {
         List<String> assignments = new ArrayList<>();
@@ -762,7 +930,7 @@ public class SchoolManagementApp extends Application {
         return assignments;
     }
 
-    private static String findBestClassroom(String courseName, int studentCount, String timeToStart, Map<String, Set<String>> schedule) {
+    public static String findBestClassroom(String courseName, int studentCount, String timeToStart, Map<String, Set<String>> schedule) {
         try (Connection classroomConnection = DriverManager.getConnection(CLASSROOM_DB_PATH)) {
 
             String classroomQuery = """
@@ -801,13 +969,23 @@ public class SchoolManagementApp extends Application {
         return "Course: " + courseName + ", Students: " + studentCount +
                 ", No suitable classroom found for Time: " + timeToStart;
     }
+    private void showUpperCaseAlert() {
+        String message = "Attention!\n\n"
+                + "When entering a student's name, please use ALL UPPERCASE LETTERS.\n"
+                + "Example: JOHN DOE\n"
+                + "Also when searching lecturers please use first letters as UPPERCASE.\n\n"
+                + "This is required for consistency in the system.";
+
+
+        showAlert("Student Name Entry Rule", message);
+    }
 
 
 
     @Override
     public void start(Stage primaryStage) {
 
-
+/*
         try {
             // FXML dosyasını yükle
             FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
@@ -820,6 +998,26 @@ public class SchoolManagementApp extends Application {
             primaryStage.setTitle("Student Manager");
             primaryStage.setScene(scene);
             primaryStage.show();
+
+            // FXML Controller'a erişim
+            SchoolManagementApp controller = loader.getController();
+            controller.init();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }*/
+        try {
+            // FXML dosyasını yükle
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
+            BorderPane root = loader.load();
+
+            // Sahneyi oluştur
+            Scene scene = new Scene(createMainMenu(primaryStage), 800, 600);
+            primaryStage.setTitle("Student Manager");
+            primaryStage.setScene(scene);
+            primaryStage.show();
+
+            // İlk uyarı mesajını göster
+            showUpperCaseAlert();
 
             // FXML Controller'a erişim
             SchoolManagementApp controller = loader.getController();
@@ -932,7 +1130,7 @@ public class SchoolManagementApp extends Application {
 
 
         System.out.println("DB_PATH: " + DB_PATH);
-       // SecondDatabase.createDatabaseDirectory(); //bunu bi defa çalıştırıp yoruma alın
+        SecondDatabase.createDatabaseDirectory(); //bunu bi defa çalıştırıp yoruma alın
         SecondDatabase.importClassroomCapacity(CSV_FILE_PATH);
 
         List<String> assignments = assignAllCoursesToClassrooms();
