@@ -173,6 +173,33 @@ public class DatabaseHelper {
         return courses;
     }
 
+    // Bir derse kayıtlı öğrencileri al
+    public static List<String> getStudentsByCourse(String courseName) {
+        List<String> students = new ArrayList<>();
+        String query = """
+            SELECT students.student_name
+            FROM students
+            INNER JOIN course_students ON students.id = course_students.student_id
+            INNER JOIN courses ON courses.id = course_students.course_id
+            WHERE courses.course_name = ?;
+            """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+            preparedStatement.setString(1, courseName);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                students.add(resultSet.getString("student_name"));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return students;
+    }
 
     // Yeni bir ders ekle
     public static void addCourse(String courseName, String timeToStart, int duration, String lecturer) {
@@ -339,6 +366,68 @@ public class DatabaseHelper {
         }
         return results;
     }
+
+    public static Map<String, Object> searchCourseDetails(String courseName) {
+        Map<String, Object> resultMap = new HashMap<>();
+        List<String> studentList = new ArrayList<>();
+        String courseQuery = """
+        SELECT courses.lecturer, courses.duration, COUNT(DISTINCT course_students.student_id) AS student_count
+        FROM courses
+        LEFT JOIN course_students ON courses.id = course_students.course_id
+        WHERE courses.course_name = ?
+        GROUP BY courses.id, courses.lecturer, courses.duration;
+    """;
+
+        String studentQuery = """
+        SELECT DISTINCT students.student_name
+        FROM students
+        INNER JOIN course_students ON students.id = course_students.student_id
+        INNER JOIN courses ON courses.id = course_students.course_id
+        WHERE courses.course_name = ?;
+    """;
+
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db")) {
+
+            // Ders detayları sorgusu
+            try (PreparedStatement courseStmt = connection.prepareStatement(courseQuery)) {
+                courseStmt.setString(1, courseName.trim());
+                ResultSet courseResult = courseStmt.executeQuery();
+
+                if (courseResult.next()) {
+                    resultMap.put("Lecturer", courseResult.getString("lecturer"));
+                    resultMap.put("Duration", courseResult.getInt("duration"));
+                    resultMap.put("Student Count", courseResult.getInt("student_count"));
+                }
+
+
+                else {
+                    resultMap.put("Message", "Course not found");
+                    return resultMap; // Ders bulunamazsa hemen dön
+                }
+            }
+
+            // Öğrenci listesi sorgusu
+            try (PreparedStatement studentStmt = connection.prepareStatement(studentQuery)) {
+                studentStmt.setString(1, courseName.trim());
+                ResultSet studentResult = studentStmt.executeQuery();
+
+                while (studentResult.next()) {
+                    studentList.add(studentResult.getString("student_name"));
+                }
+            }
+
+            resultMap.put("Student List", studentList); // Öğrenci listesi ekleniyor
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            resultMap.put("Error", "Database error occurred: " + e.getMessage());
+        }
+
+        return resultMap;
+    }
+
+
 
 
 
@@ -511,37 +600,6 @@ public class DatabaseHelper {
         return schedule;
     }
 
-    public static List<String> getStudentsByCourse(String courseName) {
-        List<String> students = new ArrayList<>(); // Öğrenci isimlerini tutacak liste
-        String query = """
-        SELECT DISTINCT  students.student_name
-        FROM students
-        INNER JOIN course_students ON students.id = course_students.student_id
-        INNER JOIN courses ON course_students.course_id = courses.id
-        WHERE courses.course_name = ?;
-    """;
-
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setString(1, courseName);
-            ResultSet resultSet = statement.executeQuery();
-
-            while (resultSet.next()) {
-                String studentName = resultSet.getString("student_name");
-                students.add(studentName); // Öğrenciyi listeye ekle
-            }
-
-            System.out.println("Students taking the course " + courseName + ": " + students);
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return students; // Listeyi döndür
-    }
-
-
     public static boolean checkAndAddStudentToCourse(String studentName, String courseName) {
         String conflictQuery = """
         SELECT 1
@@ -594,5 +652,62 @@ public class DatabaseHelper {
 
 
 
-}
+    //EN ESKİSİ ALTTAKİ -----------------------------------
 
+    /*public static Map<String, Map<String, String>> getWeeklyScheduleForStudentWithTimes(String studentName) {
+        String query = """
+        SELECT DISTINCT courses.course_name, courses.time_to_start
+        FROM courses
+        INNER JOIN course_students ON courses.id = course_students.course_id
+        INNER JOIN students ON students.id = course_students.student_id
+        WHERE students.student_name = ?
+    """;
+
+        Map<String, Map<String, String>> schedule = new LinkedHashMap<>();
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
+
+        // Gün ve zaman dilimleri için boş program oluştur
+        for (String day : days) {
+            Map<String, String> timeMap = new LinkedHashMap<>();
+            for (String time : TIME_SLOTS) {
+                timeMap.put(time, "-"); // Başlangıçta her slot boş
+            }
+            schedule.put(day, timeMap);
+        }
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, studentName);
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                String courseName = resultSet.getString("course_name");
+                String timeToStart = resultSet.getString("time_to_start");
+
+                // Gün ve saat eşleştirmesi
+                for (String day : days) {
+                    if (timeToStart.toLowerCase().contains(day.toLowerCase())) {
+                        for (String time : TIME_SLOTS) {
+                            if (timeToStart.contains(time.split(" ")[0])) {
+                                schedule.get(day).put(time, courseName);
+                            }
+                        }
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return schedule;
+    }
+
+     */
+
+
+
+
+
+}
