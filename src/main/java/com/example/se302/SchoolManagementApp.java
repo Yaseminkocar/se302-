@@ -75,6 +75,11 @@ public class SchoolManagementApp extends Application {
         studentManagementMenu.getItems().add(addStudentToCourseItem);
 
         studentManagementMenu.getItems().addAll(removeStudentItem, assignToClass,viewWeeklyScheduleItem);
+        MenuItem removeStudentItem2 = new MenuItem("Remove Student");
+        removeStudentItem.setOnAction(e -> {
+            Scene removeStudentScene = createRemoveStudentScene(primaryStage);
+            primaryStage.setScene(removeStudentScene);
+        });
 
 
         Menu classroomMenu = new Menu("Classroom");
@@ -683,9 +688,44 @@ public class SchoolManagementApp extends Application {
         Scene scene = new Scene(layout, 800, 600);
         return scene;
     }
+    private Scene createRemoveStudentScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
 
-        private static final String TIMETABLE_DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
-        private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
+        Label studentLabel = new Label("Student Name:");
+        TextField studentField = new TextField();
+
+        Label courseLabel = new Label("Course Name:");
+        TextField courseField = new TextField();
+
+        Button removeButton = new Button("Remove Student from Course");
+        Label resultLabel = new Label();
+
+        removeButton.setOnAction(e -> {
+            String studentName = studentField.getText().trim();
+            String courseName = courseField.getText().trim();
+
+            if (!studentName.isEmpty() && !courseName.isEmpty()) {
+                boolean success = DatabaseHelper.removeStudentFromCourse(studentName, courseName);
+                if (success) {
+                    resultLabel.setText("Student removed from the course successfully!");
+                } else {
+                    resultLabel.setText("Error: Student not found in the specified course.");
+                }
+            } else {
+                resultLabel.setText("Please enter both student name and course name.");
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(studentLabel, studentField, courseLabel, courseField, removeButton, resultLabel, backButton);
+
+        return new Scene(layout, 800, 600);
+    }
+        private static final String TIMETABLE_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db";
+        private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/ClassroomCapacity.db";
 
     public static List<String> assignAllCoursesToClassrooms() {
         List<String> assignments = new ArrayList<>();
@@ -791,13 +831,13 @@ public class SchoolManagementApp extends Application {
 
 
     private static final String DB_PATH = "jdbc:sqlite:" + System.getProperty("user.dir") + "\\TimetableManagement.db";
-    private static final String CSV_FILE_PATH = "C:/database/ClassroomCapacity.csv";
+    private static final String CSV_FILE_PATH = "/Users/yasemin/Desktop/ClassroomCapacity.csv";
 
 
     public static void main(String[] args) throws SQLException {
 
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db");
              Statement statement = connection.createStatement()) {
 
             System.out.println("Courses:");
@@ -817,7 +857,7 @@ public class SchoolManagementApp extends Application {
             e.printStackTrace();
         }
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db")) {
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db")) {
 
             Statement statement = connection.createStatement();
 
@@ -851,7 +891,7 @@ public class SchoolManagementApp extends Application {
             e.printStackTrace();
         }
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db");
              Statement statement = connection.createStatement()) {
 
             System.out.println("\nCourse-Student Relationships:");
@@ -888,11 +928,11 @@ public class SchoolManagementApp extends Application {
         DatabaseHelper.removeDuplicates();
 
         // CSV dosyasını veritabanına aktar
-        CSVToDatabase.importCSV("C:\\database\\Courses (2).csv");
+        CSVToDatabase.importCSV("/Users/yasemin/Desktop/Courses.csv");
 
 
         System.out.println("DB_PATH: " + DB_PATH);
-        SecondDatabase.createDatabaseDirectory(); //bunu bi defa çalıştırıp yoruma alın
+       // SecondDatabase.createDatabaseDirectory(); //bunu bi defa çalıştırıp yoruma alın
         SecondDatabase.importClassroomCapacity(CSV_FILE_PATH);
 
         List<String> assignments = assignAllCoursesToClassrooms();

@@ -12,7 +12,7 @@ import java.util.*;
 
 public class DatabaseHelper {
 
-    private static final String DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
+    private static final String DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db";
 
     static {
         // Ensure the database file exists
@@ -348,7 +348,7 @@ public class DatabaseHelper {
         GROUP BY students.student_name;
     """;
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db");
              PreparedStatement statement = connection.prepareStatement(query)) {
 
             statement.setString(1, studentName.trim()); // Kullanıcının girdiği isimle eşleştir
@@ -387,7 +387,7 @@ public class DatabaseHelper {
     """;
 
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db")) {
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db")) {
 
             // Ders detayları sorgusu
             try (PreparedStatement courseStmt = connection.prepareStatement(courseQuery)) {
@@ -431,7 +431,7 @@ public class DatabaseHelper {
 
 
 
-    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
+    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/ClassroomCapacity.db";
 
     // Classroom kapasitelerini getir
     public static List<String> getClassroomCapacities() {
@@ -649,7 +649,31 @@ public class DatabaseHelper {
         return false;
     }
 
+    public static boolean removeStudentFromCourse(String studentName, String courseName) {
+        String deleteSQL = """
+        DELETE FROM course_students
+        WHERE student_id = (SELECT id FROM students WHERE student_name = ?)
+          AND course_id = (SELECT id FROM courses WHERE course_name = ?)
+    """;
 
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement preparedStatement = connection.prepareStatement(deleteSQL)) {
+
+            preparedStatement.setString(1, studentName);
+            preparedStatement.setString(2, courseName);
+
+            int rowsAffected = preparedStatement.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Student removed from course successfully!");
+                return true;
+            } else {
+                System.out.println("No matching record found to remove.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 
 
     //EN ESKİSİ ALTTAKİ -----------------------------------
