@@ -20,4 +20,4 @@ You can search by lecturers and see their courses. Also our search button includ
 - Help Button: You can find how to use details under the help button. All possible questions were explained.
 - Alert: When you search lecturers or students you must pay attention to use uppercases. To prevent possible confusions or errors alert message was added. It shows on the screen as soon as you open the program.
 
-Our wiki page link: https://github.com/Yaseminkocar/se302-.wiki
+Our wiki page link: https://github.com/Yaseminkocar/se302-/wiki
