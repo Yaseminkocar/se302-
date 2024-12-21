@@ -45,4 +45,5 @@
             <Button text="Help" fx:id="helpButton" />
         </HBox>
     </center>
+
 </BorderPane>

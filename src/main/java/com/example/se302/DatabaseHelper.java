@@ -12,11 +12,11 @@ import java.util.*;
 
 public class DatabaseHelper {
 
-    private static final String DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db";
+    private static final String DB_PATH = "jdbc:sqlite:database/TimetableManagement.db";
 
     static {
         // Ensure the database file exists
-        File dbFile = new File(System.getProperty("user.dir") + "\\TimetableManagement.db");
+        File dbFile = new File("database/TimetableManagement.db");
 
         try {
             if (!dbFile.exists()) {
@@ -31,6 +31,7 @@ public class DatabaseHelper {
             e.printStackTrace();
         }
     }
+
 
 
     public static boolean courseExists(String courseName, String timeToStart) {
@@ -98,7 +99,7 @@ public class DatabaseHelper {
         }
     }
 
-    public static void removeDuplicates() {
+    /*public static void removeDuplicates() {
         String deleteSQL = """
         DELETE FROM courses
         WHERE id NOT IN (
@@ -117,7 +118,80 @@ public class DatabaseHelper {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    } */
+
+    public static void removeDuplicateCourses() {
+        String findDuplicatesQuery = """
+        SELECT course_name, time_to_start, COUNT(*)
+        FROM courses
+        GROUP BY course_name, time_to_start
+        HAVING COUNT(*) > 1
+    """;
+
+        String deleteDuplicatesQuery = """
+        DELETE FROM courses
+        WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM courses
+            GROUP BY course_name, time_to_start
+        )
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             Statement statement = connection.createStatement()) {
+
+            // Çift kayıtları bul
+            ResultSet resultSet = statement.executeQuery(findDuplicatesQuery);
+            System.out.println("Duplicate Courses Found:");
+            while (resultSet.next()) {
+                String courseName = resultSet.getString("course_name");
+                String timeToStart = resultSet.getString("time_to_start");
+                int count = resultSet.getInt("COUNT(*)");
+                System.out.println("Course: " + courseName + ", Time: " + timeToStart + ", Count: " + count);
+            }
+
+            // Çift kayıtları sil
+            int rowsAffected = statement.executeUpdate(deleteDuplicatesQuery);
+            System.out.println("Duplicate courses removed: " + rowsAffected);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
+
+    public static void removeInvalidCourseStudents() {
+        String deleteInvalidCourseStudentsQuery = """
+        DELETE FROM course_students
+        WHERE course_id NOT IN (SELECT id FROM courses)
+    """;
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             Statement statement = connection.createStatement()) {
+
+            // Geçersiz `course_id` referanslarını sil
+            int rowsAffected = statement.executeUpdate(deleteInvalidCourseStudentsQuery);
+            System.out.println("Invalid course-student relationships removed: " + rowsAffected);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public static void cleanDatabase() {
+        System.out.println("Starting database cleaning...");
+
+        // Çift kayıtları temizle
+        removeDuplicateCourses();
+
+        // Geçersiz referansları temizle
+        removeInvalidCourseStudents();
+
+        System.out.println("Database cleaning completed.");
+    }
+
+
+
 
 
     // Import data from CSV to SQLite
@@ -348,7 +422,7 @@ public class DatabaseHelper {
         GROUP BY students.student_name;
     """;
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
              PreparedStatement statement = connection.prepareStatement(query)) {
 
             statement.setString(1, studentName.trim()); // Kullanıcının girdiği isimle eşleştir
@@ -387,7 +461,7 @@ public class DatabaseHelper {
     """;
 
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db")) {
+        try (Connection connection = DriverManager.getConnection(DB_PATH)) {
 
             // Ders detayları sorgusu
             try (PreparedStatement courseStmt = connection.prepareStatement(courseQuery)) {
@@ -427,11 +501,9 @@ public class DatabaseHelper {
         return resultMap;
     }
 
+    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:database/ClassroomCapacity.db";
 
 
-
-
-    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/ClassroomCapacity.db";
 
     // Classroom kapasitelerini getir
     public static List<String> getClassroomCapacities() {
@@ -675,60 +747,327 @@ public class DatabaseHelper {
         return false;
     }
 
+    public static boolean reassignClassroomIfNeeded(
+            String courseName,
+            int newStudentCount,
+            String timeToStart,
+            Map<String, Set<String>> schedule) {
 
-    //EN ESKİSİ ALTTAKİ -----------------------------------
-
-    /*public static Map<String, Map<String, String>> getWeeklyScheduleForStudentWithTimes(String studentName) {
-        String query = """
-        SELECT DISTINCT courses.course_name, courses.time_to_start
-        FROM courses
-        INNER JOIN course_students ON courses.id = course_students.course_id
-        INNER JOIN students ON students.id = course_students.student_id
-        WHERE students.student_name = ?
-    """;
-
-        Map<String, Map<String, String>> schedule = new LinkedHashMap<>();
-        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
-
-        // Gün ve zaman dilimleri için boş program oluştur
-        for (String day : days) {
-            Map<String, String> timeMap = new LinkedHashMap<>();
-            for (String time : TIME_SLOTS) {
-                timeMap.put(time, "-"); // Başlangıçta her slot boş
-            }
-            schedule.put(day, timeMap);
+        String oldClassroom = getClassroomForCourse(courseName, timeToStart);
+        if (oldClassroom != null && schedule.containsKey(oldClassroom)) {
+            schedule.get(oldClassroom).remove(timeToStart);
         }
 
-        try (Connection connection = DriverManager.getConnection(DB_PATH);
-             PreparedStatement statement = connection.prepareStatement(query)) {
+        String reassignment = SchoolManagementApp.findBestClassroom(courseName, newStudentCount, timeToStart, schedule);
 
-            statement.setString(1, studentName);
-            ResultSet resultSet = statement.executeQuery();
+        if (reassignment.contains("No suitable classroom")) {
+            return false;
+        } else {
+            String newClassroom = parseClassroomFromResult(reassignment);
+            return true;
+        }
+    }
+    private static String getClassroomForCourse(String courseName, String timeToStart) {
 
-            while (resultSet.next()) {
-                String courseName = resultSet.getString("course_name");
-                String timeToStart = resultSet.getString("time_to_start");
+        String query = """
+        SELECT assigned_classroom 
+        FROM course_assignments
+        WHERE course_name = ? AND time_to_start = ?
+        LIMIT 1;
+    """;
 
-                // Gün ve saat eşleştirmesi
-                for (String day : days) {
-                    if (timeToStart.toLowerCase().contains(day.toLowerCase())) {
-                        for (String time : TIME_SLOTS) {
-                            if (timeToStart.contains(time.split(" ")[0])) {
-                                schedule.get(day).put(time, courseName);
-                            }
-                        }
-                    }
+        try (Connection conn = DriverManager.getConnection(DB_PATH);
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, courseName);
+            ps.setString(2, timeToStart);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("assigned_classroom");
                 }
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return schedule;
+        return null;
+    }
+    private static String parseClassroomFromResult(String result) {
+
+        String[] parts = result.split(",");
+        for (String part : parts) {
+            part = part.trim();
+            if (part.startsWith("Assigned Classroom: ")) {
+                return part.replace("Assigned Classroom: ", "").trim();
+            }
+        }
+        return null;
+    }
+    private static void updateCourseClassroomInDB(String courseName, String timeToStart, String newClassroom) {
+        String updateQuery = """
+        UPDATE course_assignments
+        SET assigned_classroom = ?
+        WHERE course_name = ? AND time_to_start = ?;
+    """;
+
+        try (Connection conn = DriverManager.getConnection(DB_PATH);
+             PreparedStatement ps = conn.prepareStatement(updateQuery)) {
+            ps.setString(1, newClassroom);
+            ps.setString(2, courseName);
+            ps.setString(3, timeToStart);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    public static boolean studentExists(String studentName) {
+        String query = "SELECT 1 FROM students WHERE student_name = ? LIMIT 1";
+
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+            preparedStatement.setString(1, studentName);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                return resultSet.next();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
+    /* public static Map<String, Map<String, String>> generateFullWeeklySchedule() {
+         Map<String, Map<String, String>> weeklySchedule = new HashMap<>();
+
+         try (Connection timetableConnection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+              Connection classroomConnection = DriverManager.getConnection("jdbc:sqlite:C:/database/ClassroomCapacity.db")) {
+
+             // Fetch all courses with student counts and times
+             String courseQuery = """
+             SELECT courses.course_name, courses.time_to_start, courses.duration, COUNT(DISTINCT course_students.student_id) AS student_count
+             FROM courses
+             LEFT JOIN course_students ON courses.id = course_students.course_id
+             GROUP BY courses.id;
+         """;
+
+             List<Map<String, Object>> courses = new ArrayList<>();
+             try (PreparedStatement courseStatement = timetableConnection.prepareStatement(courseQuery);
+                  ResultSet courseResultSet = courseStatement.executeQuery()) {
+
+                 while (courseResultSet.next()) {
+                     Map<String, Object> course = new HashMap<>();
+                     course.put("course_name", courseResultSet.getString("course_name"));
+                     course.put("time_to_start", courseResultSet.getString("time_to_start"));
+                     course.put("duration", courseResultSet.getInt("duration"));
+                     course.put("student_count", courseResultSet.getInt("student_count"));
+                     courses.add(course);
+                 }
+             }
+
+             // Fetch classrooms with capacities
+             String classroomQuery = "SELECT Classroom, Capacity FROM classroom_capacity;";
+             Map<String, Integer> classrooms = new HashMap<>();
+             try (PreparedStatement classroomStatement = classroomConnection.prepareStatement(classroomQuery);
+                  ResultSet classroomResultSet = classroomStatement.executeQuery()) {
+
+                 while (classroomResultSet.next()) {
+                     String classroom = classroomResultSet.getString("Classroom");
+                     int capacity = classroomResultSet.getInt("Capacity");
+                     classrooms.put(classroom, capacity);
+                 }
+             }
+
+             // Assign courses to classrooms
+             for (Map<String, Object> course : courses) {
+                 String courseName = (String) course.get("course_name");
+                 String timeToStart = (String) course.get("time_to_start");
+                 int duration = (int) course.get("duration");
+                 int studentCount = (int) course.get("student_count");
+
+                 boolean assigned = false;
+
+                 for (String classroom : classrooms.keySet()) {
+                     if (classrooms.get(classroom) >= studentCount) {
+                         weeklySchedule.computeIfAbsent(classroom, k -> new HashMap<>())
+                                 .put(timeToStart, "Course: " + courseName + ", Duration: " + duration + " hours");
+                         assigned = true;
+                         break;
+                     }
+                 }
+
+                 if (!assigned) {
+                     weeklySchedule.computeIfAbsent("Unassigned", k -> new HashMap<>())
+                             .put(timeToStart, "Course: " + courseName + ", Duration: " + duration + " hours");
+                 }
+             }
+
+         } catch (SQLException e) {
+             e.printStackTrace();
+         }
+
+         return weeklySchedule;
+     }
+
      */
+    public static Map<String, Map<String, String>> generateFullWeeklySchedule() {
+        Map<String, Map<String, String>> weeklySchedule = new HashMap<>();
+
+       /*try (Connection timetableConnection = DriverManager.getConnection("jdbc:sqlite:C:\\database\\TimetableManagement.db");
+            Connection classroomConnection = DriverManager.getConnection("jdbc:sqlite:C:/database/ClassroomCapacity.db")) {
+
+           // Fetch all courses with student counts and times
+           String courseQuery = """
+            SELECT courses.course_name, courses.time_to_start, courses.duration,
+                   COUNT(DISTINCT course_students.student_id) AS student_count
+            FROM courses
+            LEFT JOIN course_students ON courses.id = course_students.course_id
+            GROUP BY courses.id;
+        """;
+
+
+           List<Map<String, Object>> courses = new ArrayList<>();
+           try (PreparedStatement courseStatement = timetableConnection.prepareStatement(courseQuery);
+                ResultSet courseResultSet = courseStatement.executeQuery()) {
+
+               while (courseResultSet.next()) {
+                   Map<String, Object> course = new HashMap<>();
+                   course.put("course_name", courseResultSet.getString("course_name"));
+                   course.put("time_to_start", courseResultSet.getString("time_to_start"));
+                   course.put("duration", courseResultSet.getInt("duration"));
+                   course.put("student_count", courseResultSet.getInt("student_count"));
+                   courses.add(course);
+               }
+           }
+// Fetch classrooms with capacities
+           String classroomQuery = "SELECT Classroom, Capacity FROM classroom_capacity;";
+           Map<String, Integer> classrooms = new HashMap<>();
+           try (PreparedStatement classroomStatement = classroomConnection.prepareStatement(classroomQuery);
+                ResultSet classroomResultSet = classroomStatement.executeQuery()) {
+
+               while (classroomResultSet.next()) {
+                   String classroom = classroomResultSet.getString("Classroom");
+                   int capacity = classroomResultSet.getInt("Capacity");
+                   classrooms.put(classroom, capacity);
+               }
+           }
+
+           // Initialize weekly schedule structure for each classroom
+           for (String classroom : classrooms.keySet()) {
+               weeklySchedule.put(classroom, new HashMap<>());
+           }
+
+           // Assign courses to classrooms
+           for (Map<String, Object> course : courses) {
+               String courseName = (String) course.get("course_name");
+               String timeToStart = (String) course.get("time_to_start");
+               int duration = (int) course.get("duration");
+               int studentCount = (int) course.get("student_count");
+
+               boolean assigned = false;
+
+
+               for (String classroom : classrooms.keySet()) {
+                   if (classrooms.get(classroom) >= studentCount) {
+                       Map<String, String> classroomSchedule = weeklySchedule.get(classroom);
+
+                       // Check for conflicts in the classroom schedule
+                       if (!classroomSchedule.containsKey(timeToStart)) {
+                           classroomSchedule.put(timeToStart, "Course: " + courseName + ", Duration: " + duration + " hours");
+                           assigned = true;
+                           break;
+                       }
+                   }
+               }
+
+
+
+               if (!assigned) {
+                   // If no classroom is found, add to an "Unassigned" schedule
+                   weeklySchedule.computeIfAbsent("Unassigned", k -> new HashMap<>())
+                           .put(timeToStart, "Course: " + courseName + ", Duration: " + duration + " hours, Students: " + studentCount);
+               }
+           }
+
+       } catch (SQLException e) {
+           e.printStackTrace();
+       }
+
+
+
+        */
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:/database/TimetableManagement.db")) {
+            // İkinci veritabanını iliştir
+            String attachQuery = "ATTACH 'C:/database/ClassroomCapacity.db' AS db2;";
+            try (PreparedStatement attachStatement = connection.prepareStatement(attachQuery)) {
+                attachStatement.execute();
+            }
+
+            // Birleştirilmiş veriler için SQL sorgusu
+            String query = """
+        SELECT courses.course_name, courses.time_to_start, courses.duration, 
+               COUNT(DISTINCT course_students.student_id) AS student_count,
+               db2.classroom_capacity.Classroom, db2.classroom_capacity.Capacity
+        FROM courses
+        LEFT JOIN course_students ON courses.id = course_students.course_id
+        LEFT JOIN db2.classroom_capacity ON db2.classroom_capacity.Classroom = courses.classroom_name
+        GROUP BY courses.id, db2.classroom_capacity.Classroom;
+    """;
+
+            try (PreparedStatement statement = connection.prepareStatement(query);
+                 ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    // Veriler işleniyor...
+                    System.out.println("Course: " + resultSet.getString("course_name"));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+
+
+        return weeklySchedule;
+    }
+
+
+
+    /**
+     * Dersin öğrenci sayısına göre sınıf atamasını gerçekleştirir.
+     *
+     * @param courseName   Ders adı
+     * @param studentCount Öğrenci sayısı
+     * @return Atanan sınıf adı
+     */
+    public static String assignClassroomForCourse(String courseName, int studentCount) {
+        String assignedClassroom = "No suitable classroom found";
+        try (Connection conn = DriverManager.getConnection(CLASSROOM_DB_PATH)) {
+            if (conn != null) {
+                String query = "SELECT Classroom FROM classroom_capacity WHERE Capacity >= ? ORDER BY Capacity ASC LIMIT 1";
+                try (PreparedStatement pstmt = conn.prepareStatement(query)) {
+                    pstmt.setInt(1, studentCount);
+                    ResultSet rs = pstmt.executeQuery();
+
+                    if (rs.next()) {
+                        assignedClassroom = rs.getString("Classroom");
+                        System.out.println("Course: " + courseName + " assigned to " + assignedClassroom);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return assignedClassroom;
+    }
+
+
+
+
+
+
+
+
+
 
 
 

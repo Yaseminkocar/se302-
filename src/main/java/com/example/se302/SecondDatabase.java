@@ -4,16 +4,22 @@ import java.sql.*;
 
 public class SecondDatabase {
 
-    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:C:/database/ClassroomCapacity.db";
-    private static final String CSV_FILE_PATH = "C:/database/ClassroomCapacity.csv";
+    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:database/ClassroomCapacity.db";
+    // Remove hardcoded CSV path since it will be passed as parameter
+
 
     public static void main(String[] args) {
         createDatabaseDirectory(); // Klasörü oluştur
-        importClassroomCapacity(CSV_FILE_PATH);
+        // Remove direct CSV_FILE_PATH reference - path should be provided as argument
+        if (args.length > 0) {
+            importClassroomCapacity(args[0]);
+        } else {
+            System.err.println("Please provide the CSV file path as an argument");
+        }
     }
 
     public static void createDatabaseDirectory() {
-        File directory = new File("C:/database");
+        File directory = new File("database");
         if (!directory.exists()) {
             directory.mkdirs();
             System.out.println("Database directory created at: " + directory.getPath());
@@ -24,6 +30,13 @@ public class SecondDatabase {
     }
 
     public static void importClassroomCapacity(String filePath) {
+        // Add file existence check
+        File csvFile = new File(filePath);
+        if (!csvFile.exists()) {
+            System.err.println("Error: CSV file not found at: " + filePath);
+            return;
+        }
+
         String createTableSQL = """
             CREATE TABLE IF NOT EXISTS classroom_capacity (
                 Classroom TEXT PRIMARY KEY,

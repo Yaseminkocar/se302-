@@ -17,11 +17,15 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+
+import java.io.File;
 import java.sql.*;
 import java.util.*;
 import java.util.ArrayList;
 import java.util.List;
+
 
 import static com.example.se302.DatabaseHelper.reassignClassroomIfNeeded;
 
@@ -103,9 +107,17 @@ public class SchoolManagementApp extends Application {
             primaryStage.setScene(assign);
         });
 
-        classroomMenu.getItems().addAll(viewClassroomCapacities,assignToClass);
 
 
+
+        MenuItem classroomSchedule = new MenuItem("Classroom Schedule");
+
+        classroomSchedule.setOnAction(e -> {
+            Scene CSchedule = createClassroomScheduleScene(primaryStage);
+            primaryStage.setScene(CSchedule);
+        });
+
+        classroomMenu.getItems().addAll(viewClassroomCapacities,assignToClass, classroomSchedule);
 
         Menu searchMenu = new Menu("Search");
         MenuItem searchItem = new MenuItem("Search Lecturer");
@@ -132,9 +144,6 @@ public class SchoolManagementApp extends Application {
 
         searchMenu.getItems().addAll(searchItem, searchStudentItem, searchCourseItem);
 
-      /*  Menu helpMenu = new Menu ("Help");
-        MenuItem help = new MenuItem("Help");
-        helpMenu.getItems().addAll(help);*/
         Menu helpMenu = new Menu("Help");
         //MenuItem help = new MenuItem("Help");
         MenuItem howToUseItem = new MenuItem("How to Use");
@@ -181,8 +190,30 @@ public class SchoolManagementApp extends Application {
         welcomeLabel.setStyle("-fx-font-size: 20px;");
         mainMenuLayout.setCenter(welcomeLabel);
 
+        createImportButton(mainMenuLayout);
+
         return mainMenuLayout;
     }
+
+    private static void showUpperCaseAlert() {
+        String message = "Attention!\n\n"
+                + "When entering a student's name, please use ALL UPPERCASE LETTERS.\n"
+                + "Example: ALİVELİ\n"
+                + "Also when searching lecturers please use first letters as UPPERCASE.\n"
+                + "Example: İlker Korkmaz\n\n"
+                + "This is required for consistency in the system.";
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Uppercase Input Required");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait(); // Kullanıcı uyarıyı kapatana kadar bekler
+    }
+
+
+
+
+
     private Scene createRemoveStudentScene(Stage primaryStage) {
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
@@ -238,6 +269,141 @@ public class SchoolManagementApp extends Application {
         layout.getChildren().addAll(new Label("Assigned Classes"), tableView, backButton);
         return new Scene(layout, 800, 600);
     }
+
+
+    private Scene createClassroomScheduleScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        // Classroom input
+        Label classroomLabel = new Label("Enter a classroom name:");
+        TextField classroomField = new TextField();
+        Button findButton = new Button("Show Weekly Schedule");
+
+        // TableView setup
+        TableView<Map<String, String>> tableView = new TableView<>();
+        TableColumn<Map<String, String>, String> timeColumn = new TableColumn<>("Time");
+        timeColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get("time")));
+
+        TableColumn<Map<String, String>, String> mondayColumn = createDayColumn("Monday");
+        TableColumn<Map<String, String>, String> tuesdayColumn = createDayColumn("Tuesday");
+        TableColumn<Map<String, String>, String> wednesdayColumn = createDayColumn("Wednesday");
+        TableColumn<Map<String, String>, String> thursdayColumn = createDayColumn("Thursday");
+        TableColumn<Map<String, String>, String> fridayColumn = createDayColumn("Friday");
+
+        tableView.getColumns().addAll(timeColumn, mondayColumn, tuesdayColumn, wednesdayColumn, thursdayColumn, fridayColumn);
+
+
+
+        findButton.setOnAction(e -> {
+            String classroomName = classroomField.getText().trim();
+            if (!classroomName.isEmpty()) {
+                Map<String, Map<String, String>> schedule = assignWeeklyScheduleToClassrooms();
+
+                /*ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
+                for (String time : TIME_SLOTS) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("time", time);
+                    for (String day : schedule.keySet()) {
+                        row.put(day, schedule.get(day).get(time));
+                    }
+                    data.add(row);
+                }
+                tableView.setItems(data);
+                 */
+
+                ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
+                Map<String, Map<String, String>> weeklySchedule = assignWeeklyScheduleToClassrooms();
+
+                for (String timeSlot : TIME_SLOTS) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("time", timeSlot);
+
+                    for (String courseName : weeklySchedule.getOrDefault(timeSlot, new HashMap<>()).keySet()) {
+                        String classroomInfo = weeklySchedule.get(timeSlot).get(courseName);
+                        row.put(courseName, classroomInfo != null ? classroomInfo : "");
+                    }
+                    data.add(row);
+                }
+                tableView.setItems(data);
+
+
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(classroomLabel, classroomField, findButton, tableView, backButton);
+        return new Scene(layout, 800, 600);
+
+    }
+
+    private void createImportButton(BorderPane mainMenuLayout) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        Button importButton = new Button("Import Data");
+        Label resultLabel = new Label();
+
+        importButton.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Select CSV File");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+
+            File selectedFile = fileChooser.showOpenDialog(null);
+
+            if (selectedFile != null) {
+                String fileName = selectedFile.getName();
+                if (fileName.equalsIgnoreCase("courses.csv")) {
+                    try {
+                        clearTable("courses");
+                        CSVToDatabase.importCSV(selectedFile.getAbsolutePath());
+                        resultLabel.setText("Courses data successfully imported.");
+                    } catch (Exception ex) {
+                        resultLabel.setText("Error importing courses: " + ex.getMessage());
+                    }
+                } else if (fileName.equalsIgnoreCase("classroomcapacity.csv")) {
+                    try {
+                        clearTable("classroom_capacity");
+                        SecondDatabase.importClassroomCapacity(selectedFile.getAbsolutePath());
+                        resultLabel.setText("Classroom capacity data successfully imported.");
+                    } catch (Exception ex) {
+                        resultLabel.setText("Error importing classroom capacity: " + ex.getMessage());
+                    }
+                } else {
+                    resultLabel.setText("Only 'courses.csv' and 'classroomcapacity.csv' files are allowed.");
+                }
+            } else {
+                resultLabel.setText("No file selected.");
+            }
+        });
+
+        layout.getChildren().addAll(importButton, resultLabel);
+        mainMenuLayout.setBottom(layout);
+    }
+
+    private void clearTable(String tableName) {
+        // İlgili veritabanını seç
+        String dbPath = tableName.equalsIgnoreCase("classroom_capacity")
+                ? "jdbc:sqlite:database/ClassroomCapacity.db"
+                : "jdbc:sqlite:database/TimetableManagement.db";
+
+        // Tablodaki tüm verileri silmek için SQL sorgusu
+        String deleteQuery = "DELETE FROM " + tableName;
+
+        try (Connection connection = DriverManager.getConnection(dbPath);
+             Statement statement = connection.createStatement()) {
+            // SQL sorgusunu çalıştır
+            int rowsAffected = statement.executeUpdate(deleteQuery);
+            System.out.println("Table '" + tableName + "' cleared. Rows affected: " + rowsAffected);
+        } catch (SQLException e) {
+            // Hata durumunda mesaj yazdır
+            System.err.println("Error clearing table '" + tableName + "': " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
 
 
     private Scene createWeeklyScheduleScene(Stage primaryStage) {
@@ -742,164 +908,16 @@ public class SchoolManagementApp extends Application {
     }
 
 
-    private Scene createClassroomScheduleScene(Stage primaryStage) {
-        // Classroom seçim ComboBox
-        Label classroomLabel = new Label("Choose a Classroom:");
-        ComboBox<String> classroomComboBox = new ComboBox<>();
 
-        // Classroom bilgilerini veritabanından doldur
-        classroomComboBox.getItems().addAll(DatabaseHelper.getClassroomsFromDatabase());
+    private static final String DB_PATH = "jdbc:sqlite:database/TimetableManagement.db";
 
-        // Ders programı için TableView
-        TableView<CourseSchedule> tableView = new TableView<>();
-
-        // Time sütunu
-        TableColumn<CourseSchedule, String> timeColumn = new TableColumn<>("Time");
-        timeColumn.setCellValueFactory(new PropertyValueFactory<>("time"));
-
-        // Hafta içi sütunları
-        TableColumn<CourseSchedule, String> mondayColumn = new TableColumn<>("Monday");
-        mondayColumn.setCellValueFactory(new PropertyValueFactory<>("monday"));
-
-        TableColumn<CourseSchedule, String> tuesdayColumn = new TableColumn<>("Tuesday");
-        tuesdayColumn.setCellValueFactory(new PropertyValueFactory<>("tuesday"));
-
-        TableColumn<CourseSchedule, String> wednesdayColumn = new TableColumn<>("Wednesday");
-        wednesdayColumn.setCellValueFactory(new PropertyValueFactory<>("wednesday"));
-
-        TableColumn<CourseSchedule, String> thursdayColumn = new TableColumn<>("Thursday");
-        thursdayColumn.setCellValueFactory(new PropertyValueFactory<>("thursday"));
-
-        TableColumn<CourseSchedule, String> fridayColumn = new TableColumn<>("Friday");
-        fridayColumn.setCellValueFactory(new PropertyValueFactory<>("friday"));
-
-        tableView.getColumns().addAll(timeColumn, mondayColumn, tuesdayColumn, wednesdayColumn, thursdayColumn, fridayColumn);
-
-        // Classroom seçildiğinde programın görünümünü güncelleme
-        classroomComboBox.setOnAction(e -> {
-            String selectedClassroom = classroomComboBox.getValue();
-            if (selectedClassroom != null) {
-                // Veritabanından gelen verileri bağla
-                tableView.setItems(DatabaseHelper.fetchCourseData(selectedClassroom));
-            }
-        });
-
-        // Layout
-        VBox layout = new VBox(10);
-        layout.getChildren().addAll(classroomLabel, classroomComboBox, tableView);
-
-        // Geri dönmek için "Back to Main Menu" butonu
-        Button backButton = new Button("Back to Main Menu");
-        backButton.setOnAction(e -> {
-            Scene mainMenuScene = new Scene(createMainMenu(primaryStage), 800, 600);
-            primaryStage.setScene(mainMenuScene);
-        });
-        layout.getChildren().add(backButton);
-
-        // Yeni sahneyi oluştur
-        Scene scene = new Scene(layout, 800, 600);
-        return scene;
-    }
-    private Scene createAddNewCourseScene(Stage primaryStage) {
-        VBox layout = new VBox(10);
-        layout.setPadding(new Insets(10));
-
-        // Kurs Bilgisi Giriş Alanları
-        Label courseNameLabel = new Label("Course Name:");
-        TextField courseNameField = new TextField();
-
-        Label lecturerLabel = new Label("Lecturer Name:");
-        TextField lecturerField = new TextField();
-
-        Label courseTimeLabel = new Label("Course Time (e.g., Monday 08:30):");
-        TextField courseTimeField = new TextField();
-
-        Label availableStudentsLabel = new Label("Available Students:");
-        ListView<String> studentListView = new ListView<>();
-        ObservableList<String> allStudents = FXCollections.observableArrayList(DatabaseHelper.getAllStudents());
-        studentListView.setItems(allStudents);
-
-        Button addStudentButton = new Button("Add Selected Student");
-
-        List<String> addedStudents = new ArrayList<>();
-        ListView<String> addedStudentsList = new ListView<>();
-
-        addStudentButton.setOnAction(e -> {
-            String selectedStudent = studentListView.getSelectionModel().getSelectedItem();
-            if (selectedStudent != null && !addedStudents.contains(selectedStudent)) {
-                addedStudents.add(selectedStudent);
-                addedStudentsList.getItems().add(selectedStudent);
-            } else {
-                showAlert("Selection Error", "Student is already added or no student selected.");
-            }
-        });
-
-        Button saveButton = new Button("Save Course");
-        saveButton.setOnAction(e -> {
-            String courseName = courseNameField.getText().trim();
-            String lecturer = lecturerField.getText().trim();
-            String courseTime = courseTimeField.getText().trim();
-
-            if (courseName.isEmpty() || lecturer.isEmpty() || courseTime.isEmpty()) {
-                showAlert("Input Error", "Please fill all fields.");
-                return;
-            }
-
-            // 1. Kurs Saati Çakışma Kontrolü
-            if (DatabaseHelper.courseExists(courseName, courseTime)) {
-                showAlert("Conflict Error", "A course already exists at this time!");
-                return;
-            }
-
-            // 2. Öğrenci Zaman Çakışması Kontrolü
-            List<String> conflictingStudents = new ArrayList<>();
-            for (String student : addedStudents) {
-                if (DatabaseHelper.doesStudentHaveTimeConflict(student, courseTime)) {
-                    conflictingStudents.add(student);
-                }
-            }
-
-            if (!conflictingStudents.isEmpty()) {
-                showAlert("Student Conflict", "The following students have time conflicts: "
-                        + String.join(", ", conflictingStudents));
-                return; // İşlemi iptal et
-            }
-
-            // 3. Kursu Ekleyelim ve Öğrencileri Ata
-            DatabaseHelper.addCourse(courseName, courseTime, 1, lecturer);
-            for (String student : addedStudents) {
-                DatabaseHelper.assignStudentToCourse(courseName, student);
-            }
-
-            showAlert("Success", "Course added successfully with selected students!");
-            primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600));
-        });
-
-        Button backButton = new Button("Back to Main Menu");
-        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
-
-        layout.getChildren().addAll(
-                courseNameLabel, courseNameField,
-                lecturerLabel, lecturerField,
-                courseTimeLabel, courseTimeField,
-                availableStudentsLabel, studentListView, addStudentButton,
-                new Label("Selected Students:"), addedStudentsList,
-                saveButton, backButton
-        );
-
-        return new Scene(layout, 800, 600);
-    }
-
-//maindeki yer
-
-    private static final String TIMETABLE_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db";
-    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:/Users/yasemin/Desktop/ClassroomCapacity.db";
+    private static final String CLASSROOM_DB_PATH = "jdbc:sqlite:database/ClassroomCapacity.db";
 
     public static List<String> assignAllCoursesToClassrooms() {
         List<String> assignments = new ArrayList<>();
         Map<String, Set<String>> schedule = new HashMap<>();
 
-        try (Connection timetableConnection = DriverManager.getConnection(TIMETABLE_DB_PATH)) {
+        try (Connection timetableConnection = DriverManager.getConnection(DB_PATH)) {
 
             String courseQuery = """
                 SELECT courses.course_name,
@@ -969,23 +987,178 @@ public class SchoolManagementApp extends Application {
         return "Course: " + courseName + ", Students: " + studentCount +
                 ", No suitable classroom found for Time: " + timeToStart;
     }
-    private void showUpperCaseAlert() {
-        String message = "Attention!\n\n"
-                + "When entering a student's name, please use ALL UPPERCASE LETTERS.\n"
-                + "Example: ALİVELİ\n"
-                + "Also when searching lecturers please use first letters as UPPERCASE.\n\n"
-                + "This is required for consistency in the system.";
 
+    public static Map<String, Map<String, String>> assignWeeklyScheduleToClassrooms() {
+        Map<String, Map<String, String>> weeklySchedule = new HashMap<>();
+        Map<String, Set<String>> schedule = new HashMap<>();
 
-        showAlert("Student Name Entry Rule", message);
+        try (Connection timetableConnection = DriverManager.getConnection(DB_PATH)) {
+
+            String courseQuery = """
+                SELECT courses.course_name,
+                       COUNT(DISTINCT students.id) AS student_count,
+                       courses.time_to_start
+                FROM course_students
+                INNER JOIN courses ON course_students.course_id = courses.id
+                INNER JOIN students ON course_students.student_id = students.id
+                GROUP BY courses.course_name, courses.time_to_start;
+        """;
+
+            try (PreparedStatement courseStatement = timetableConnection.prepareStatement(courseQuery);
+                 ResultSet courseResultSet = courseStatement.executeQuery()) {
+
+                while (courseResultSet.next()) {
+                    String courseName = courseResultSet.getString("course_name");
+                    int studentCount = courseResultSet.getInt("student_count");
+                    String timeToStart = courseResultSet.getString("time_to_start");
+
+                    String classroomAssignment = findBestClassroomForSchedule(courseName, studentCount, timeToStart, schedule);
+
+                    // Classroom bazında haftalık program oluşturuluyor
+                    if (!weeklySchedule.containsKey(classroomAssignment)) {
+                        weeklySchedule.put(classroomAssignment, new HashMap<>());
+                    }
+                    weeklySchedule.get(classroomAssignment).put(courseName + " - " + timeToStart,
+                            "Students: " + studentCount);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return weeklySchedule;
     }
 
+
+    /*public static Map<String, Map<String, String>> assignWeeklyScheduleToClassrooms() {
+        Map<String, Map<String, String>> weeklySchedule = new HashMap<>();
+        Map<String, Set<String>> schedule = new HashMap<>();
+
+        try (Connection timetableConnection = DriverManager.getConnection(TIMETABLE_DB_PATH)) {
+
+            // 'day' sütunu kaldırıldı
+            String courseQuery = """
+                SELECT courses.course_name,
+                       COUNT(DISTINCT students.id) AS student_count,
+                       courses.time_to_start
+                FROM course_students
+                INNER JOIN courses ON course_students.course_id = courses.id
+                INNER JOIN students ON course_students.student_id = students.id
+                GROUP BY courses.course_name, courses.time_to_start;
+        """;
+
+            try (PreparedStatement courseStatement = timetableConnection.prepareStatement(courseQuery);
+                 ResultSet courseResultSet = courseStatement.executeQuery()) {
+
+                while (courseResultSet.next()) {
+                    String courseName = courseResultSet.getString("course_name");
+                    int studentCount = courseResultSet.getInt("student_count");
+                    String timeToStart = courseResultSet.getString("time_to_start");
+
+                    // 'day' parametresi kaldırıldı
+                    String classroomAssignment = findBestClassroomForSchedule(courseName, studentCount, timeToStart, schedule);
+
+                    // 'day' kullanılmadığı için sadece 'timeToStart' ile işlem yapıyoruz
+                    if (!weeklySchedule.containsKey(timeToStart)) {
+                        weeklySchedule.put(timeToStart, new HashMap<>());
+                    }
+                    weeklySchedule.get(timeToStart).put(courseName, classroomAssignment);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return weeklySchedule;
+    }
+
+
+
+
+    public static String findBestClassroomForSchedule(String courseName, int studentCount, String timeToStart, Map<String, Set<String>> schedule) {
+        try (Connection classroomConnection = DriverManager.getConnection(CLASSROOM_DB_PATH)) {
+
+            String classroomQuery = """
+        SELECT Classroom, Capacity
+        FROM classroom_capacity
+        WHERE Capacity >= ?
+        ORDER BY Capacity ASC;
+        """;
+
+            try (PreparedStatement classroomStatement = classroomConnection.prepareStatement(classroomQuery)) {
+                classroomStatement.setInt(1, studentCount);
+
+                try (ResultSet classroomResultSet = classroomStatement.executeQuery()) {
+                    while (classroomResultSet.next()) {
+                        String classroom = classroomResultSet.getString("Classroom");
+                        int capacity = classroomResultSet.getInt("Capacity");
+
+                        // Sadece timeToStart kullanılarak key oluşturuluyor
+                        String timeKey = timeToStart;
+
+                        if (!schedule.containsKey(classroom)) {
+                            schedule.put(classroom, new HashSet<>());
+                        }
+
+                        if (!schedule.get(classroom).contains(timeKey)) {
+                            schedule.get(classroom).add(timeKey);
+                            return "Course: " + courseName + ", Assigned Classroom: " + classroom +
+                                    ", Capacity: " + capacity + ", Students: " + studentCount;
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "No suitable classroom found for Course: " + courseName + ", Time: " + timeToStart;
+    }
+
+     */
+
+    public static String findBestClassroomForSchedule(String courseName, int studentCount, String timeToStart, Map<String, Set<String>> schedule) {
+        try (Connection classroomConnection = DriverManager.getConnection(CLASSROOM_DB_PATH)) {
+
+            String classroomQuery = """
+        SELECT Classroom, Capacity 
+        FROM classroom_capacity 
+        WHERE Capacity >= ? 
+        ORDER BY Capacity ASC;
+        """;
+
+            try (PreparedStatement classroomStatement = classroomConnection.prepareStatement(classroomQuery)) {
+                classroomStatement.setInt(1, studentCount);
+
+                try (ResultSet classroomResultSet = classroomStatement.executeQuery()) {
+                    while (classroomResultSet.next()) {
+                        String classroom = classroomResultSet.getString("Classroom");
+                        int capacity = classroomResultSet.getInt("Capacity");
+
+                        // Classroom key ve zaman dilimi ile key oluşturuluyor
+                        String timeKey = timeToStart;
+
+                        if (!schedule.containsKey(classroom)) {
+                            schedule.put(classroom, new HashSet<>());
+                        }
+
+                        if (!schedule.get(classroom).contains(timeKey)) {
+                            schedule.get(classroom).add(timeKey);
+                            return classroom;  // Sınıfın adı döndürülüyor
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "No suitable classroom found";  // Uygun bir sınıf bulunamadığında
+    }
 
 
     @Override
     public void start(Stage primaryStage) {
 
-/*
+
         try {
             // FXML dosyasını yükle
             FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
@@ -995,29 +1168,11 @@ public class SchoolManagementApp extends Application {
             // Sahneyi oluştur
             Scene scene = new Scene(createMainMenu(primaryStage), 800, 600);
             // scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
-            primaryStage.setTitle("Student Manager");
-            primaryStage.setScene(scene);
-            primaryStage.show();
 
-            // FXML Controller'a erişim
-            SchoolManagementApp controller = loader.getController();
-            controller.init();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }*/
-        try {
-            // FXML dosyasını yükle
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
-            BorderPane root = loader.load();
-
-            // Sahneyi oluştur
-            Scene scene = new Scene(createMainMenu(primaryStage), 800, 600);
-            primaryStage.setTitle("Student Manager");
-            primaryStage.setScene(scene);
-            primaryStage.show();
-
-            // İlk uyarı mesajını göster
             showUpperCaseAlert();
+            primaryStage.setTitle("Student Manager");
+            primaryStage.setScene(scene);
+            primaryStage.show();
 
             // FXML Controller'a erişim
             SchoolManagementApp controller = loader.getController();
@@ -1027,15 +1182,10 @@ public class SchoolManagementApp extends Application {
         }
     }
 
-
-    private static final String DB_PATH = "jdbc:sqlite:" + System.getProperty("user.dir") + "\\TimetableManagement.db";
-    private static final String CSV_FILE_PATH = "/Users/yasemin/Desktop/ClassroomCapacity.csv";
-
-
     public static void main(String[] args) throws SQLException {
 
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
              Statement statement = connection.createStatement()) {
 
             System.out.println("Courses:");
@@ -1055,7 +1205,7 @@ public class SchoolManagementApp extends Application {
             e.printStackTrace();
         }
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db")) {
+        try (Connection connection = DriverManager.getConnection(DB_PATH)) {
 
             Statement statement = connection.createStatement();
 
@@ -1064,7 +1214,7 @@ public class SchoolManagementApp extends Application {
             ResultSet courseCodes = statement.executeQuery("""
         SELECT DISTINCT student_name AS code_or_name
         FROM students
-        WHERE student_name GLOB '[A-Z]*[0-9]*'
+        WHERE student_name GLOB '[A-Z][0-9]'
         ORDER BY student_name;
     """);
 
@@ -1077,7 +1227,7 @@ public class SchoolManagementApp extends Application {
             ResultSet studentNames = statement.executeQuery("""
         SELECT DISTINCT student_name AS code_or_name
         FROM students
-        WHERE student_name NOT GLOB '[A-Z]*[0-9]*'
+        WHERE student_name NOT GLOB '[A-Z][0-9]'
         
     """);
 
@@ -1089,7 +1239,7 @@ public class SchoolManagementApp extends Application {
             e.printStackTrace();
         }
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:/Users/yasemin/Desktop/TimetableManagement.db");
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
              Statement statement = connection.createStatement()) {
 
             System.out.println("\nCourse-Student Relationships:");
@@ -1122,19 +1272,23 @@ public class SchoolManagementApp extends Application {
         }
 
 
-        //  DatabaseSetup.setupDatabase();
-        DatabaseHelper.removeDuplicates();
+          DatabaseSetup.setupDatabase();
+        //  DatabaseHelper.removeDuplicates();
 
-        // CSV dosyasını veritabanına aktar
-        CSVToDatabase.importCSV("/Users/yasemin/Desktop/Courses.csv");
+         //CSV dosyasını veritabanına aktar
+        CSVToDatabase.importCSV("csv/ClassroomCapacity.csv");
 
 
         System.out.println("DB_PATH: " + DB_PATH);
         SecondDatabase.createDatabaseDirectory(); //bunu bi defa çalıştırıp yoruma alın
-        SecondDatabase.importClassroomCapacity(CSV_FILE_PATH);
+        SecondDatabase.importClassroomCapacity("csv/ClassroomCapacity.csv");
+
 
         List<String> assignments = assignAllCoursesToClassrooms();
         assignments.forEach(System.out::println);
+
+      //  DatabaseHelper.cleanDatabase();
+
 
 
         // JavaFX uygulamasını başlat

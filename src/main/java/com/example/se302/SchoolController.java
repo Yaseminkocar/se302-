@@ -27,6 +27,11 @@ public class SchoolController {
     @FXML private Button removeButton;
     @FXML private Button assignButton;
     @FXML private Button helpButton;
+    @FXML
+    private MenuItem distributeCoursesItem;
+
+    @FXML
+    private Button distributeButton;
 
     // Controller başlatma işlemleri
     public void init() {
@@ -46,6 +51,8 @@ public class SchoolController {
         System.out.println("Add New Student Form");
         // Öğrenci ekleme işlevini burada gerçekleştirin
     }
+
+
 }
 
 

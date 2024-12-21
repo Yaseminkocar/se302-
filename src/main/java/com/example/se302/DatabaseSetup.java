@@ -4,13 +4,14 @@ import java.sql.*;
 
 public class DatabaseSetup {
 
-    private static final String DB_PATH = "jdbc:sqlite:C:\\database\\TimetableManagement.db";
-
-
+    private static final String DB_PATH = "jdbc:sqlite:database/TimetableManagement.db";
 
     public static void setupDatabase() {
         try (Connection connection = DriverManager.getConnection(DB_PATH);
              Statement statement = connection.createStatement()) {
+
+            // Foreign key özelliğini etkinleştir
+            statement.execute("PRAGMA foreign_keys = ON;");
 
             // courses tablosu oluştur
             String createCoursesTable = """
@@ -19,8 +20,8 @@ public class DatabaseSetup {
                     course_name TEXT NOT NULL,
                     time_to_start TEXT NOT NULL,
                     duration INTEGER NOT NULL,
-                    lecturer TEXT NOT NULL
-                  UNIQUE(course_name, time_to_start)
+                    lecturer TEXT NOT NULL,
+                    UNIQUE(course_name, time_to_start)
                 );
                 """;
             statement.execute(createCoursesTable);
@@ -40,6 +41,7 @@ public class DatabaseSetup {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     course_id INTEGER NOT NULL,
                     student_id INTEGER NOT NULL,
+                    UNIQUE(course_id, student_id),
                     FOREIGN KEY (course_id) REFERENCES courses (id),
                     FOREIGN KEY (student_id) REFERENCES students (id)
                 );
@@ -49,6 +51,7 @@ public class DatabaseSetup {
             System.out.println("Database and tables created successfully.");
 
         } catch (SQLException e) {
+            System.err.println("SQL error during database setup: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -57,21 +60,22 @@ public class DatabaseSetup {
         try (Connection connection = DriverManager.getConnection(DB_PATH);
              Statement statement = connection.createStatement()) {
 
-            // Eğer tablo zaten varsa hiçbir şey yapma
-            String checkTableQuery = "SELECT name FROM sqlite_master WHERE type='table' AND name='courses';";
-            ResultSet resultSet = statement.executeQuery(checkTableQuery);
+            String checkTablesQuery = """
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name IN ('courses', 'students', 'course_students');
+            """;
+            ResultSet resultSet = statement.executeQuery(checkTablesQuery);
 
             if (!resultSet.next()) {
-                // Tablo yoksa oluştur
-                String createCoursesTable = "CREATE TABLE courses (course_name TEXT, time_to_start TEXT, duration INTEGER, lecturer TEXT)";
-                statement.executeUpdate(createCoursesTable);
-                System.out.println("Courses table created.");
+                System.out.println("One or more tables are missing. Running setupDatabase...");
+                setupDatabase();
             } else {
-                System.out.println("Courses table already exists.");
+                System.out.println("All tables are present.");
             }
 
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            System.err.println("SQL error during database check: " + e.getMessage());
             e.printStackTrace();
-}
-}
+        }
+    }
 }
