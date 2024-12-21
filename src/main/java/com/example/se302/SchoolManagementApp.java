@@ -16,6 +16,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -190,7 +191,52 @@ public class SchoolManagementApp extends Application {
         welcomeLabel.setStyle("-fx-font-size: 20px;");
         mainMenuLayout.setCenter(welcomeLabel);
 
-        createImportButton(mainMenuLayout);
+        // Add Assign button
+        Button assignButton = new Button("Assign Courses to Classrooms");
+        assignButton.setOnAction(e -> {
+            assignAllCoursesToClassroomsAndUpdateDB();
+            showAlert("Success", "Courses have been assigned to classrooms successfully.");
+        });
+
+        // Create Import button
+        Button importButton = new Button("Import Data");
+        importButton.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Select CSV File");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+
+            File selectedFile = fileChooser.showOpenDialog(null);
+
+            if (selectedFile != null) {
+                String fileName = selectedFile.getName();
+                if (fileName.equalsIgnoreCase("courses.csv")) {
+                    try {
+                        clearTable("courses");
+                        CSVToDatabase.importCSV(selectedFile.getAbsolutePath());
+                        showAlert("Success", "Courses data successfully imported.");
+                    } catch (Exception ex) {
+                        showAlert("Error", "Error importing courses: " + ex.getMessage());
+                    }
+                } else if (fileName.equalsIgnoreCase("classroomcapacity.csv")) {
+                    try {
+                        clearTable("classroom_capacity");
+                        SecondDatabase.importClassroomCapacity(selectedFile.getAbsolutePath());
+                        showAlert("Success", "Classroom capacity data successfully imported.");
+                    } catch (Exception ex) {
+                        showAlert("Error", "Error importing classroom capacity: " + ex.getMessage());
+                    }
+                } else {
+                    showAlert("Error", "Only 'courses.csv' and 'classroomcapacity.csv' files are allowed.");
+                }
+            } else {
+                showAlert("Error", "No file selected.");
+            }
+        });
+
+        HBox buttonLayout = new HBox(10);
+        buttonLayout.setPadding(new Insets(10));
+        buttonLayout.getChildren().addAll(assignButton, importButton);
+        mainMenuLayout.setBottom(buttonLayout);
 
         return mainMenuLayout;
     }
@@ -293,41 +339,25 @@ public class SchoolManagementApp extends Application {
 
         tableView.getColumns().addAll(timeColumn, mondayColumn, tuesdayColumn, wednesdayColumn, thursdayColumn, fridayColumn);
 
-
-
         findButton.setOnAction(e -> {
             String classroomName = classroomField.getText().trim();
             if (!classroomName.isEmpty()) {
-                Map<String, Map<String, String>> schedule = assignWeeklyScheduleToClassrooms();
+                if (databaseExists()) {
+                    Map<String, Map<String, String>> schedule = DatabaseHelper.getWeeklyScheduleForClassroom(classroomName);
 
-                /*ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
-                for (String time : TIME_SLOTS) {
-                    Map<String, String> row = new LinkedHashMap<>();
-                    row.put("time", time);
-                    for (String day : schedule.keySet()) {
-                        row.put(day, schedule.get(day).get(time));
+                    ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
+                    for (String time : TIME_SLOTS) {
+                        Map<String, String> row = new LinkedHashMap<>();
+                        row.put("time", time);
+                        for (String day : schedule.keySet()) {
+                            row.put(day, schedule.get(day).get(time));
+                        }
+                        data.add(row);
                     }
-                    data.add(row);
+                    tableView.setItems(data);
+                } else {
+                    showAlert("Error", "Database not found.");
                 }
-                tableView.setItems(data);
-                 */
-
-                ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
-                Map<String, Map<String, String>> weeklySchedule = assignWeeklyScheduleToClassrooms();
-
-                for (String timeSlot : TIME_SLOTS) {
-                    Map<String, String> row = new LinkedHashMap<>();
-                    row.put("time", timeSlot);
-
-                    for (String courseName : weeklySchedule.getOrDefault(timeSlot, new HashMap<>()).keySet()) {
-                        String classroomInfo = weeklySchedule.get(timeSlot).get(courseName);
-                        row.put(courseName, classroomInfo != null ? classroomInfo : "");
-                    }
-                    data.add(row);
-                }
-                tableView.setItems(data);
-
-
             }
         });
 
@@ -336,7 +366,11 @@ public class SchoolManagementApp extends Application {
 
         layout.getChildren().addAll(classroomLabel, classroomField, findButton, tableView, backButton);
         return new Scene(layout, 800, 600);
+    }
 
+    private boolean databaseExists() {
+        File dbFile = new File("database/TimetableManagement.db");
+        return dbFile.exists();
     }
 
     private void createImportButton(BorderPane mainMenuLayout) {
@@ -1154,11 +1188,55 @@ public class SchoolManagementApp extends Application {
         return "No suitable classroom found";  // Uygun bir sınıf bulunamadığında
     }
 
+    private Scene createClassroomWeeklyScheduleScene(Stage primaryStage) {
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        Label classroomLabel = new Label("Enter a classroom name:");
+        TextField classroomField = new TextField();
+        Button findButton = new Button("Show Weekly Schedule");
+
+        TableView<Map<String, String>> tableView = new TableView<>();
+        TableColumn<Map<String, String>, String> timeColumn = new TableColumn<>("Time");
+        timeColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get("time")));
+
+        TableColumn<Map<String, String>, String> mondayColumn = createDayColumn("Monday");
+        TableColumn<Map<String, String>, String> tuesdayColumn = createDayColumn("Tuesday");
+        TableColumn<Map<String, String>, String> wednesdayColumn = createDayColumn("Wednesday");
+        TableColumn<Map<String, String>, String> thursdayColumn = createDayColumn("Thursday");
+        TableColumn<Map<String, String>, String> fridayColumn = createDayColumn("Friday");
+
+        tableView.getColumns().addAll(timeColumn, mondayColumn, tuesdayColumn, wednesdayColumn, thursdayColumn, fridayColumn);
+
+        findButton.setOnAction(e -> {
+            String classroomName = classroomField.getText().trim();
+            if (!classroomName.isEmpty()) {
+                Map<String, Map<String, String>> schedule = DatabaseHelper.getWeeklyScheduleForClassroom(classroomName);
+
+                ObservableList<Map<String, String>> data = FXCollections.observableArrayList();
+                for (String time : TIME_SLOTS) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("time", time);
+                    for (String day : schedule.keySet()) {
+                        row.put(day, schedule.get(day).get(time));
+                    }
+                    data.add(row);
+                }
+                tableView.setItems(data);
+            }
+        });
+
+        Button backButton = new Button("Back to Main Menu");
+        backButton.setOnAction(e -> primaryStage.setScene(new Scene(createMainMenu(primaryStage), 800, 600)));
+
+        layout.getChildren().addAll(classroomLabel, classroomField, findButton, tableView, backButton);
+        return new Scene(layout, 800, 600);
+    }
 
     @Override
     public void start(Stage primaryStage) {
-
-
+        DatabaseConnection.setupCourseAssignmentsTable();
+        assignAllCoursesToClassroomsAndUpdateDB();
         try {
             // FXML dosyasını yükle
             FXMLLoader loader = new FXMLLoader(getClass().getResource("school-view.fxml"));
@@ -1179,6 +1257,19 @@ public class SchoolManagementApp extends Application {
             controller.init();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void assignAllCoursesToClassroomsAndUpdateDB() {
+        List<String> assignments = assignAllCoursesToClassrooms();
+        for (String assignment : assignments) {
+            String[] parts = assignment.split(", ");
+            if (parts.length == 5) {
+                String courseName = parts[0].split(": ")[1];
+                String classroomName = parts[2].split(": ")[1];
+                String timeToStart = parts[4].split(": ")[1];
+                DatabaseHelper.storeClassroomAssignment(courseName, classroomName, timeToStart);
+            }
         }
     }
 

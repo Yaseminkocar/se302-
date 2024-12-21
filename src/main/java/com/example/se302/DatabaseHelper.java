@@ -996,9 +996,9 @@ public class DatabaseHelper {
 
         */
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:C:/database/TimetableManagement.db")) {
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:database/TimetableManagement.db")) {
             // İkinci veritabanını iliştir
-            String attachQuery = "ATTACH 'C:/database/ClassroomCapacity.db' AS db2;";
+            String attachQuery = "ATTACH 'database/ClassroomCapacity.db' AS db2;";
             try (PreparedStatement attachStatement = connection.prepareStatement(attachQuery)) {
                 attachStatement.execute();
             }
@@ -1060,17 +1060,80 @@ public class DatabaseHelper {
         return assignedClassroom;
     }
 
+    public static Map<String, Map<String, String>> getWeeklyScheduleForClassroom(String classroomName) {
+        String query = """
+            SELECT courses.course_name, courses.time_to_start
+            FROM courses
+            INNER JOIN classroom_assignment ON courses.course_name = classroom_assignment.course_name
+            WHERE classroom_assignment.classroom_name = ?
+        """;
 
+        Map<String, Map<String, String>> schedule = new LinkedHashMap<>();
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
 
+        // Initialize the schedule with empty slots
+        for (String day : days) {
+            Map<String, String> timeMap = new LinkedHashMap<>();
+            for (String time : TIME_SLOTS) {
+                timeMap.put(time, "-"); // Initially, all slots are empty
+            }
+            schedule.put(day, timeMap);
+        }
 
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement statement = connection.prepareStatement(query)) {
 
+            statement.setString(1, classroomName);
+            ResultSet resultSet = statement.executeQuery();
 
+            while (resultSet.next()) {
+                String courseName = resultSet.getString("course_name");
+                String timeToStart = resultSet.getString("time_to_start");
 
+                // Parse the time_to_start
+                String[] parts = timeToStart.split(" "); // Example: ["Monday", "08:30"]
+                if (parts.length == 2) {
+                    String day = parts[0];
+                    String time = parts[1];
 
+                    // Match the day and time
+                    for (String scheduledDay : days) {
+                        if (day.equalsIgnoreCase(scheduledDay)) {
+                            for (String slot : TIME_SLOTS) {
+                                if (slot.contains(time)) { // Find the correct time slot
+                                    schedule.get(scheduledDay).put(slot, courseName);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
+        return schedule;
+    }
 
+    public static void storeClassroomAssignment(String courseName, String classroomName, String timeToStart) {
+        String insertSQL = """
+            INSERT INTO classroom_assignment (course_name, classroom_name, time_to_start)
+            VALUES (?, ?, ?)
+            ON CONFLICT(course_name, time_to_start) DO UPDATE SET classroom_name = excluded.classroom_name;
+        """;
 
+        try (Connection connection = DriverManager.getConnection(DB_PATH);
+             PreparedStatement preparedStatement = connection.prepareStatement(insertSQL)) {
 
+            preparedStatement.setString(1, courseName);
+            preparedStatement.setString(2, classroomName);
+            preparedStatement.setString(3, timeToStart);
+            preparedStatement.executeUpdate();
 
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }
