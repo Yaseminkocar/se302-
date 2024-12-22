@@ -31,7 +31,8 @@ You can search by lecturers and see their courses. Also our search button includ
 <img src="./example5.jpeg" alt="Proje Görseli" width="300"/>
 
 ## Documents
-- [View user requirements pdf](./USERREQUIREMENTS.pdf)
+- [Download user requirements pdf](https://raw.githubusercontent.com/YaseminKocar/se302-/main/USERREQUIREMENTS.pdf)
+
 
 ## Project Management Tool
 - Asana: We used asana for our tasks and keeping track of our project.
