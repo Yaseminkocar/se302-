@@ -23,3 +23,8 @@ You can search by lecturers and see their courses. Also our search button includ
 ## Links
 - Our wiki page link: https://github.com/Yaseminkocar/se302-/wiki
 - Our task point system list document link: https://docs.google.com/spreadsheets/d/1AlfErOdzXFdeF4O_IQgFmAdyayhcPwo-JS1Y1kXMXhE/edit?usp=sharing
+
+## File Features
+- Data Import: When you open the program you must click on the data import button and select the related csv files seperately (courses and classroom capacity)then program will automatically import the files.
+- Program execution: After uploading the files to the application, you need to terminate the application and restart it.
+
