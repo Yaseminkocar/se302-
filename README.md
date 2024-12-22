@@ -25,6 +25,8 @@ You can search by lecturers and see their courses. Also our search button includ
 - Our task point system list document link: https://docs.google.com/spreadsheets/d/1AlfErOdzXFdeF4O_IQgFmAdyayhcPwo-JS1Y1kXMXhE/edit?usp=sharing
 
 ## File Features
-- Data Import: When you open the program you must click on the data import button and select the related csv files seperately (courses and classroom capacity)then program will automatically import the files.
+- Data Import: When you open the program you must click on the data import button and select the related csv files seperately (courses and classroom capacity)then program will automatically import the files. After that you must click to the assign courses button.
 - Program execution: After uploading the files to the application, you need to terminate the application and restart it.
-
+<img src="./example6.jpeg" alt="Proje Görseli" width="300"/>
+<img src="./example5.jpeg" alt="Proje Görseli" width="300"/>
+## Documents
