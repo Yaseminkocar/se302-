@@ -29,4 +29,10 @@ You can search by lecturers and see their courses. Also our search button includ
 - Program execution: After uploading the files to the application, you need to terminate the application and restart it.
 <img src="./example6.jpeg" alt="Proje Görseli" width="300"/>
 <img src="./example5.jpeg" alt="Proje Görseli" width="300"/>
+
 ## Documents
+- [View user requirements pdf](./USERREQUIREMENTS.pdf)
+
+## Project Management Tool
+- Asana: We used asana for our tasks and keeping track of our project.
+
