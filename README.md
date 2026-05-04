@@ -1,4 +1,4 @@
-# SE302 PROJECT
+# Student Schedule Management
 This project was developed to help students and lecturers at adding or removing lectures,searching among lecturers and viewing students' schedules.
 Here you can find some things you can do by using this application.
 ## Add student scene
